@@ -15,12 +15,16 @@ function localHour() {
   return Number(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: 'numeric', hour12: false }).format(new Date()));
 }
 
-// Runs hourly (see vercel.json). Pings a task the day it falls due,
-// then every 3 days while it stays overdue. Silent 10pm-7am.
+// Runs once a day at 06:00 UTC — 7am in London during BST, 6am in winter.
+// (Vercel's Hobby plan allows one cron run per day, so the send time is the
+// cron time rather than a check-every-hour gate.) Pings a task the day it
+// falls due, then every 3 days while it stays overdue.
 export default async function handler(req, res) {
   const hour = localHour();
-  if (hour >= QUIET_START || hour < QUIET_END) return res.json({ skipped: 'quiet hours', hour });
-  if (hour !== QUIET_END) return res.json({ skipped: 'not the daily send hour', hour });
+  // Safety net: never ping in the middle of the night, whatever the schedule says.
+  if (hour >= QUIET_START || hour < QUIET_END) {
+    if (!req.query || req.query.force !== '1') return res.json({ skipped: 'quiet hours', hour });
+  }
 
   const tasks = await sql`select * from tasks where archived = false`;
   const subs = await sql`select * from subscriptions`;
