@@ -7,7 +7,7 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY
 );
 
-const TZ = process.env.HOUSEHOLD_TZ || 'Europe/London';
+const TZ = process.env.HOUSEHOLD_TZ || 'Australia/Melbourne';
 const QUIET_START = 22; // 10pm
 const QUIET_END = 7;    // 7am
 
@@ -15,7 +15,7 @@ function localHour() {
   return Number(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: 'numeric', hour12: false }).format(new Date()));
 }
 
-// Runs once a day at 06:00 UTC — 7am in London during BST, 6am in winter.
+// Runs once a day at 21:00 UTC — 7am in Melbourne during AEST, 8am during AEDT.
 // (Vercel's Hobby plan allows one cron run per day, so the send time is the
 // cron time rather than a check-every-hour gate.) Pings a task the day it
 // falls due, then every 3 days while it stays overdue.
