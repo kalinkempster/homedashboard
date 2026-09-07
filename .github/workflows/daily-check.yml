@@ -1,0 +1,24 @@
+# Pokes /api/check-due every hour. The endpoint itself decides whether to send:
+# it fires on the first poke at or after 7am household time and claims the day,
+# so the other 23 pokes cost nothing. This is what keeps delivery at 7am across
+# a daylight saving change — Vercel's Hobby plan allows only one cron a day at a
+# fixed UTC time, which can be right in only one half of the year.
+#
+# Vercel's own cron (see vercel.json, 21:00 UTC) stays on as a fallback for when
+# GitHub pauses this workflow, which it does after 60 days without a commit.
+
+name: Daily due check
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the due check
+        run: |
+          curl --silent --show-error --fail-with-body --max-time 60 \
+            "https://homedashboard-peach.vercel.app/api/check-due"

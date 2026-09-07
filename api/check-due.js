@@ -1,5 +1,5 @@
 import webpush from 'web-push';
-import { sql, daysUntil } from './_db.js';
+import { sql, TZ, daysUntil, daysSince, todayKey, localHour } from './_db.js';
 
 webpush.setVapidDetails(
   'mailto:' + (process.env.CONTACT_EMAIL || 'nobody@example.com'),
@@ -7,20 +7,8 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY
 );
 
-const TZ = process.env.HOUSEHOLD_TZ || 'Australia/Melbourne';
-const QUIET_START = 22; // 10pm
-const QUIET_END = 7;    // 7am
-
-function localHour() {
-  return Number(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: 'numeric', hour12: false }).format(new Date()));
-}
-
-function daysSince(date) {
-  if (!date) return null;
-  const then = new Date(date); then.setHours(0, 0, 0, 0);
-  const now = new Date(); now.setHours(0, 0, 0, 0);
-  return Math.round((now - then) / 86400000);
-}
+const SEND_HOUR = 7;   // 7am, household time
+const QUIET_START = 22; // never send past 10pm, even if a trigger arrives late
 
 // Sends one payload to every registered device, reporting what happened to
 // each. Dead or mismatched endpoints are removed so the list self-heals:
@@ -54,12 +42,32 @@ async function pushToAll(subs, payload) {
   }));
 }
 
-// Runs once a day at 21:00 UTC — 7am in Melbourne during AEST, 8am during AEDT.
+// Claims today's send slot. Returns false if some earlier trigger already took
+// it, which is what lets this endpoint be hit every hour without sending twice.
+// Keyed on the household's calendar day, not the server's.
+async function claimToday(day) {
+  await sql`create table if not exists run_log (
+    day date primary key,
+    at  timestamptz not null default now()
+  )`;
+  const rows = await sql`
+    insert into run_log (day) values (${day}::date)
+    on conflict (day) do nothing returning day`;
+  return rows.length > 0;
+}
+
+// Triggered hourly (GitHub Actions) with Vercel's daily cron as a fallback, and
+// sends on the first trigger at or after 7am household time. Gating on the hour
+// here rather than on the cron expression is what keeps delivery at 7am through
+// a daylight saving change, since a fixed UTC cron can only be right half the
+// year. The day-claim makes the extra triggers free.
+//
 // A job is pinged the day it falls due, then every 3 days while it stays overdue.
-//   ?force=1 — ignore the quiet-hours guard (for testing)
+//   ?force=1 — ignore the send window and the once-a-day claim (for testing)
 //   ?test=1  — send one test notification to every device and report per-device status
 export default async function handler(req, res) {
   const q = req.query || {};
+  const force = q.force === '1';
   const subs = await sql`select * from subscriptions order by id`;
 
   if (q.test === '1') {
@@ -71,8 +79,15 @@ export default async function handler(req, res) {
   }
 
   const hour = localHour();
-  if ((hour >= QUIET_START || hour < QUIET_END) && q.force !== '1') {
-    return res.json({ skipped: 'quiet hours', hour, timezone: TZ });
+  const today = todayKey();
+
+  if (!force) {
+    if (hour < SEND_HOUR || hour >= QUIET_START) {
+      return res.json({ skipped: 'outside the send window', hour, sendHour: SEND_HOUR, timezone: TZ });
+    }
+    if (!(await claimToday(today))) {
+      return res.json({ skipped: 'already sent today', day: today, hour, timezone: TZ });
+    }
   }
 
   const tasks = await sql`select * from tasks where archived = false`;
@@ -98,9 +113,9 @@ export default async function handler(req, res) {
     const r = await pushToAll(subs, { title: task.name, body, taskId: task.id });
     results.push({ task: task.name, devices: r });
 
-    await sql`update tasks set last_pinged = current_date where id = ${task.id}`;
+    await sql`update tasks set last_pinged = ${today}::date where id = ${task.id}`;
     sent.push(task.name);
   }
 
-  res.json({ sent, devices: subs.length, hour, timezone: TZ, results });
+  res.json({ sent, devices: subs.length, day: today, hour, timezone: TZ, results });
 }

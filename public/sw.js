@@ -1,3 +1,86 @@
+// Bump to retire the previous cache on the next deploy.
+const CACHE = 'homedash-v1';
+
+// Enough to boot the app with no connection at all.
+const SHELL = [
+  '/',
+  '/support.js',
+  '/manifest.webmanifest',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/favicon.svg',
+  '/favicon-32.png',
+  '/apple-touch-icon.png'
+];
+
+self.addEventListener('install', event => {
+  // One missing file must not fail the whole install, so they're added
+  // individually and failures ignored.
+  event.waitUntil(
+    caches.open(CACHE)
+      .then(c => Promise.all(SHELL.map(url => c.add(url).catch(() => {}))))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+
+function putIfOk(request, response) {
+  if (response && response.ok) {
+    const copy = response.clone();
+    caches.open(CACHE).then(c => c.put(request, copy)).catch(() => {});
+  }
+  return response;
+}
+
+// Serve from cache, refresh in the background. Opening the app is then instant
+// and works with no signal; the 60s poll and the visibility refetch pull the
+// real numbers in a moment later.
+function staleWhileRevalidate(request) {
+  return caches.match(request).then(hit => {
+    const live = fetch(request).then(r => putIfOk(request, r)).catch(() => null);
+    return hit || live.then(r => r || Response.error());
+  });
+}
+
+self.addEventListener('fetch', event => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+
+  const url = new URL(req.url);
+  const sameOrigin = url.origin === self.location.origin;
+
+  // Writes and the config lookup must always be live.
+  if (sameOrigin && url.pathname.startsWith('/api/') && url.pathname !== '/api/tasks') return;
+
+  // Without this an offline boot falls through to the app's own prototype mode,
+  // which renders seeded demo chores — worse than showing yesterday's real list.
+  if (sameOrigin && url.pathname === '/api/tasks') {
+    event.respondWith(staleWhileRevalidate(req));
+    return;
+  }
+
+  // Navigations go to the network first so a deploy is picked up straight away,
+  // and fall back to the cached shell when there's nothing to reach.
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req).then(r => putIfOk(req, r))
+        .catch(() => caches.match(req).then(hit => hit || caches.match('/')))
+    );
+    return;
+  }
+
+  if (sameOrigin || /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)) {
+    event.respondWith(staleWhileRevalidate(req));
+  }
+});
+
 // Shows a notification for every push, even if the payload is missing or
 // malformed — Chrome penalises a push event that displays nothing.
 self.addEventListener('push', event => {
@@ -23,8 +106,3 @@ self.addEventListener('notificationclick', event => {
     return self.clients.openWindow('/');
   }));
 });
-
-// Take over immediately on update rather than waiting for every tab to close,
-// so a redeploy can't leave a stale worker holding the subscription.
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));

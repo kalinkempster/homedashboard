@@ -15,12 +15,28 @@ create table if not exists tasks (
   last_pinged  date
 );
 
+-- Each row carries the task state it replaced, so an undo restores exactly what
+-- was there instead of inferring it from whatever rows are left.
 create table if not exists history (
-  id       serial primary key,
-  task_id  integer not null references tasks(id) on delete cascade,
-  at       timestamptz not null default now(),
-  by_who   text,
-  kind     text not null default 'done'            -- 'done' | 'skipped'
+  id           serial primary key,
+  task_id      integer not null references tasks(id) on delete cascade,
+  at           timestamptz not null default now(),
+  by_who       text,
+  kind         text not null default 'done',       -- 'done' | 'skipped'
+  prev_last_done    date,
+  prev_last_done_by text,
+  prev_streak       integer,
+  prev_last_pinged  date
+);
+
+create index if not exists history_at_idx on history (at desc);
+create index if not exists history_task_at_idx on history (task_id, at desc);
+
+-- One row per day on which the reminder run has already gone out, so the
+-- hourly trigger can be safely hit all day and only send once.
+create table if not exists run_log (
+  day date primary key,
+  at  timestamptz not null default now()
 );
 
 create table if not exists subscriptions (

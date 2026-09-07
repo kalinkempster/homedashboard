@@ -3,9 +3,15 @@ import { sql, daysUntil } from './_db.js';
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     const tasks = await sql`select * from tasks order by id`;
-    const history = await sql`select * from history order by at desc limit 500`;
     const withDue = tasks.map(t => ({ ...t, days_until: daysUntil(t) }));
-    return res.json({ tasks: withDue, history });
+
+    // History moved to /api/history so the 60s poll stays small. `?history=1`
+    // keeps an already-installed copy of the app working until it refreshes.
+    if ((req.query || {}).history === '1') {
+      const history = await sql`select * from history order by at desc limit 500`;
+      return res.json({ tasks: withDue, history });
+    }
+    return res.json({ tasks: withDue });
   }
 
   if (req.method === 'POST') {
