@@ -1,5 +1,5 @@
 // Bump to retire the previous cache on the next deploy.
-const CACHE = 'homedash-v1';
+const CACHE = 'homedash-v2';
 
 // Enough to boot the app with no connection at all.
 const SHELL = [
@@ -59,10 +59,17 @@ self.addEventListener('fetch', event => {
   // Writes and the config lookup must always be live.
   if (sameOrigin && url.pathname.startsWith('/api/') && url.pathname !== '/api/tasks') return;
 
-  // Without this an offline boot falls through to the app's own prototype mode,
-  // which renders seeded demo chores — worse than showing yesterday's real list.
+  // Network first, falling back to the last good copy. The fallback is what
+  // stops an offline boot dropping through to the app's prototype mode and
+  // rendering seeded demo chores instead of the real list.
+  //
+  // Deliberately NOT stale-while-revalidate: two phones reconcile against this
+  // every 60s, and serving the previous response would make a tick appear to
+  // undo itself until the poll after next.
   if (sameOrigin && url.pathname === '/api/tasks') {
-    event.respondWith(staleWhileRevalidate(req));
+    event.respondWith(
+      fetch(req).then(r => putIfOk(req, r)).catch(() => caches.match(req))
+    );
     return;
   }
 
