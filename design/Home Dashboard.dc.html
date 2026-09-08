@@ -388,6 +388,19 @@ function shortStatus(d) {
   return "In " + d + "d";
 }
 
+// Only reached when there's no API to talk to, which is the standalone
+// prototype case — opened as a plain file rather than served by Vercel.
+function seedTasks() {
+  return SEED.map((s, i) => ({
+    id: "t" + i, name: s[0], interval: s[1],
+    lastDone: startOfDay(Date.now() - s[2] * DAY),
+    lastDoneBy: i % 2 === 0 ? "Kal" : "Lara",
+    streak: [3,1,5,2,8,4,0,6,2,9,11][i] || 0,
+    notes: "", archived: false, snoozedTo: null,
+    history: [{ at: startOfDay(Date.now() - s[2] * DAY), by: i % 2 === 0 ? "Kal" : "Lara", kind: "done" }]
+  }));
+}
+
 function everyLabel(n) {
   if (n % 7 === 0 && n >= 7 && n < 60) { const w = n / 7; return w === 1 ? "week" : w + " wks"; }
   if (n >= 60) { const m = Math.round(n / 30); return m + " mth" + (m === 1 ? "" : "s"); }
@@ -406,14 +419,9 @@ class Component extends DCLogic {
     // null means "not fetched yet" as opposed to "fetched and empty".
     log: null, logMore: false, logBusy: false, detailLog: null,
     layout: "tiles", holdingId: null,
-    tasks: SEED.map((s, i) => ({
-      id: "t" + i, name: s[0], interval: s[1],
-      lastDone: startOfDay(Date.now() - s[2] * DAY),
-      lastDoneBy: i % 2 === 0 ? "Kal" : "Lara",
-      streak: [3,1,5,2,8,4,0,6,2,9,11][i] || 0,
-      notes: "", archived: false, snoozedTo: null,
-      history: [{ at: startOfDay(Date.now() - s[2] * DAY), by: i % 2 === 0 ? "Kal" : "Lara", kind: "done" }]
-    }))
+    // Starts empty on purpose. Seeding here painted eleven fake chores on every
+    // cold start, for as long as the API took to answer — long enough to tap one.
+    booted: false, tasks: []
   };
 
   componentDidMount() {
@@ -447,6 +455,7 @@ class Component extends DCLogic {
       if (!Array.isArray(data.tasks)) throw new Error("no api");
       this.server = true;
       this.applyServer(data);
+      this.setState({ booted: true });
       fetch("/api/config").then(x => x.json()).then(c => { this.vapid = c.vapidPublicKey; }).catch(() => {});
       this.poll = setInterval(() => this.reload(), 60000);
       if (typeof document !== "undefined") {
@@ -457,14 +466,15 @@ class Component extends DCLogic {
       // talking to the server is the real job list and is worth showing; one
       // from a standalone prototype run is only ever seed data.
       this.server = false;
+      let snapshot = null;
       try {
         const raw = localStorage.getItem("homedash.v2");
         if (raw) {
           const p = JSON.parse(raw);
-          if (p.tasks) this.setState({ tasks: p.tasks });
-          this.stale = p.real === true;
+          if (p.tasks) { snapshot = p.tasks; this.stale = p.real === true; }
         }
       } catch (e2) {}
+      this.setState({ tasks: snapshot || seedTasks(), booted: true });
     }
   }
   componentWillUnmount() { if (this.poll) clearInterval(this.poll); }
@@ -958,7 +968,8 @@ class Component extends DCLogic {
       rowsBg: grid ? "transparent" : "#221e1c",
       rowsColor: grid ? "#7d746c" : "#f2ede8",
 
-      allClear: sections.length === 0,
+      // An empty list before boot means "not loaded", not "nothing to do".
+      allClear: s.booted && sections.length === 0,
       nextTaskName: next ? next.name : "",
       nextTaskIn: next ? plural(Math.max(this.daysUntil(next), 0), "day") : "",
       hasLater: !grid && later.length > 0 && !s.laterOpen,
