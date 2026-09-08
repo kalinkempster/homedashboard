@@ -188,17 +188,28 @@
 
       <sc-if value="{{ hasStaples }}" hint-placeholder-val="{{ true }}">
         <div style="margin-top:20px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:#968c83">Regulars</div>
-            <div style="flex:1;height:1px;background:#1b1817"></div>
-          </div>
-          <div style="display:flex;flex-wrap:wrap;gap:7px">
-            <sc-for list="{{ staples }}" as="chip" hint-placeholder-count="8">
-              <button onClick="{{ chip.onTap }}" aria-pressed="{{ chip.on }}" style="height:38px;padding:0 13px;border-radius:999px;background:{{ chip.bg }};border:1px solid {{ chip.border }};color:{{ chip.color }};font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:6px" style-hover="border-color:#3a332e">
-                <span style="font-size:14px;line-height:1;color:{{ chip.markColor }}">{{ chip.mark }}</span>{{ chip.name }}
-              </button>
-            </sc-for>
-          </div>
+          <button onClick="{{ toggleRegulars }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:2px 0 10px" style-hover="color:#f2ede8">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:#968c83">Regulars</span>
+            <span style="flex:1;height:1px;background:#1b1817"></span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;color:#8d837a">{{ regularsToggleLabel }}</span>
+          </button>
+
+          <sc-if value="{{ regularsOpen }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <sc-for list="{{ stapleGroups }}" as="group" hint-placeholder-count="4">
+                <div style="margin-bottom:14px">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;color:#6d645c;margin-bottom:7px">{{ group.label }}</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:7px">
+                    <sc-for list="{{ group.chips }}" as="chip" hint-placeholder-count="4">
+                      <button onClick="{{ chip.onTap }}" aria-pressed="{{ chip.on }}" style="height:38px;padding:0 13px;border-radius:999px;background:{{ chip.bg }};border:1px solid {{ chip.border }};color:{{ chip.color }};font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:6px" style-hover="border-color:#3a332e">
+                        <span style="font-size:14px;line-height:1;color:{{ chip.markColor }}">{{ chip.mark }}</span>{{ chip.name }}
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
         </div>
       </sc-if>
 
@@ -572,7 +583,7 @@ class Component extends DCLogic {
 
   state = {
     view: "home", who: "Kal", detailId: null, laterOpen: false,
-    cal: null, groceries: null, staples: null, newItem: "",
+    cal: null, groceries: null, staples: null, newItem: "", regularsOpen: true,
     newName: "", newInterval: "", toast: null, notifState: "default",
     pushState: "off", pushError: "",
     // Server mode keeps the log out of the 60s poll and pages it in on demand;
@@ -1245,7 +1256,7 @@ class Component extends DCLogic {
     // A chip reads as "on" only while the item is still wanted — once it's in
     // the trolley the chip goes quiet again so it can be added to a later shop.
     const onList = new Set(wantedItems.map(i => i.name.toLowerCase()));
-    const staples = (s.staples || []).map(st => {
+    const chipFor = st => {
       const on = onList.has(st.name.toLowerCase());
       return {
         name: st.name,
@@ -1257,7 +1268,18 @@ class Component extends DCLogic {
         color: on ? "#f2ede8" : "#c8bfb6",
         onTap: () => this.toggleStaple(st.name)
       };
-    });
+    };
+
+    // Ranks are assigned in category order, so walking the list in order and
+    // starting a new group whenever the category changes keeps them together
+    // without a second sort — and anything uncategorised falls in at the end.
+    const stapleGroups = [];
+    for (const st of (s.staples || [])) {
+      const label = st.category || "Other";
+      let g = stapleGroups[stapleGroups.length - 1];
+      if (!g || g.label !== label) { g = { label: label, chips: [] }; stapleGroups.push(g); }
+      g.chips.push(chipFor(st));
+    }
 
     return {
       todayLabel: new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }),
@@ -1308,8 +1330,11 @@ class Component extends DCLogic {
       clearDone: () => this.clearDone(),
 
       goHome: () => this.setState({ view: "home" }),
-      staples: staples,
-      hasStaples: staples.length > 0,
+      stapleGroups: stapleGroups,
+      hasStaples: stapleGroups.length > 0,
+      regularsOpen: s.regularsOpen,
+      regularsToggleLabel: s.regularsOpen ? "Hide" : "Show",
+      toggleRegulars: () => this.setState({ regularsOpen: !s.regularsOpen }),
       goGrocery: () => { this.setState({ view: "grocery" }); this.loadGroceries(); this.loadStaples(); },
       goList: () => this.setState({ view: "list" }),
       goHistory: () => { this.setState({ view: "history" }); this.loadLog(false); },

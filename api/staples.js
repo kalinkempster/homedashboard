@@ -16,6 +16,7 @@ async function ensureTable() {
     name text not null unique,
     rank integer not null default 100
   )`;
+  await sql`alter table staples add column if not exists category text`;
   ready = true;
 }
 
@@ -32,9 +33,12 @@ export default async function handler(req, res) {
     if (!name) return res.status(400).json({ error: 'name required' });
     if (name.length > 60) return res.status(400).json({ error: 'name too long' });
     const rank = Number.isFinite(+req.body?.rank) ? +req.body.rank : 100;
+    const category = (req.body?.category || '').trim() || null;
+    // Ranks run in category order, so the list arrives already grouped and the
+    // page can split it on the boundaries without a second sort.
     const [row] = await sql`
-      insert into staples (name, rank) values (${name}, ${rank})
-      on conflict (name) do update set rank = ${rank} returning *`;
+      insert into staples (name, rank, category) values (${name}, ${rank}, ${category})
+      on conflict (name) do update set rank = ${rank}, category = ${category} returning *`;
     return res.json(row);
   }
 

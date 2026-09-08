@@ -89,7 +89,8 @@ create table if not exists birthdays (
 -- The regulars: one-tap chips on the grocery page. Seeded from the last five
 -- Coles orders, edited freely afterwards.
 create table if not exists staples (
-  id   serial primary key,
-  name text not null unique,
-  rank integer not null default 100
+  id       serial primary key,
+  name     text not null unique,
+  rank     integer not null default 100,
+  category text
 );

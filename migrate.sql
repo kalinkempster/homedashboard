@@ -35,7 +35,10 @@ create table if not exists birthdays (
 );
 
 create table if not exists staples (
-  id   serial primary key,
-  name text not null unique,
-  rank integer not null default 100
+  id       serial primary key,
+  name     text not null unique,
+  rank     integer not null default 100,
+  category text
 );
+
+alter table staples add column if not exists category text;
