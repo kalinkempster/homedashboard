@@ -91,31 +91,62 @@ export default async function handler(req, res) {
   }
 
   const tasks = await sql`select * from tasks where archived = false`;
-  const sent = [];
-  const results = [];
 
+  // Work out everything owing first, then send once. One push per job meant a
+  // morning with six overdue jobs produced six separate buzzes in a row.
+  const due = [];
   for (const task of tasks) {
     const d = daysUntil(task);
     if (d > 0) continue;
 
-    const overdueBy = -d;
-    const sinceLastPing = daysSince(task.last_pinged);
-
     // First ping the day it comes due; afterwards only once every 3 days.
     // Driven by last_pinged rather than the overdue count, so a missed run
-    // doesn't skip the reminder entirely.
+    // doesn't skip the reminder entirely. Still per-job, so a job you were
+    // pinged about yesterday stays out of today's list.
+    const sinceLastPing = daysSince(task.last_pinged);
     if (sinceLastPing !== null && sinceLastPing < 3) continue;
 
-    const body = overdueBy === 0
-      ? 'Due today'
-      : overdueBy + ' day' + (overdueBy === 1 ? '' : 's') + ' overdue';
-
-    const r = await pushToAll(subs, { title: task.name, body, taskId: task.id });
-    results.push({ task: task.name, devices: r });
-
-    await sql`update tasks set last_pinged = ${today}::date where id = ${task.id}`;
-    sent.push(task.name);
+    due.push({ task, overdueBy: -d });
   }
 
-  res.json({ sent, devices: subs.length, day: today, hour, timezone: TZ, results });
+  if (!due.length) {
+    return res.json({ sent: [], devices: subs.length, day: today, hour, timezone: TZ });
+  }
+
+  // Worst first — that's the order they're worth dealing with.
+  due.sort((a, b) => b.overdueBy - a.overdueBy);
+
+  const label = e => e.overdueBy === 0
+    ? 'due today'
+    : e.overdueBy + ' day' + (e.overdueBy === 1 ? '' : 's') + ' overdue';
+
+  // Long bodies get truncated by the OS, so name a handful and count the rest.
+  const shown = due.slice(0, 5);
+  const rest = due.length - shown.length;
+
+  const payload = due.length === 1
+    ? {
+        title: due[0].task.name,
+        body: label(due[0]).charAt(0).toUpperCase() + label(due[0]).slice(1),
+        taskId: due[0].task.id,
+        tag: 'digest'
+      }
+    : {
+        title: due.length + ' jobs need doing',
+        body: shown.map(e => e.task.name + ' · ' + label(e)).join('\n')
+              + (rest ? '\n+ ' + rest + ' more' : ''),
+        tag: 'digest'
+      };
+
+  const results = await pushToAll(subs, payload);
+
+  for (const e of due) {
+    await sql`update tasks set last_pinged = ${today}::date where id = ${e.task.id}`;
+  }
+
+  res.json({
+    sent: due.map(e => e.task.name),
+    notification: payload,
+    devices: subs.length, day: today, hour, timezone: TZ, results
+  });
 }

@@ -99,7 +99,9 @@ self.addEventListener('push', event => {
     body: data.body || 'A job is due.',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-    tag: 'task-' + (data.taskId || Date.now()),
+    // A stable tag lets the morning digest replace yesterday's rather than
+    // stacking up in the shade.
+    tag: data.tag || ('task-' + (data.taskId || Date.now())),
     renotify: true,
     requireInteraction: false,
     data: { taskId: data.taskId }
