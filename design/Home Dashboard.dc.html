@@ -186,8 +186,24 @@
         <button onClick="{{ addItem }}" style="flex-shrink:0;height:50px;padding:0 20px;border-radius:12px;background:#c2410c;color:#fff;font-size:14.5px;font-weight:600" style-hover="background:#d24e15">Add</button>
       </div>
 
+      <sc-if value="{{ hasStaples }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:20px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:#968c83">Regulars</div>
+            <div style="flex:1;height:1px;background:#1b1817"></div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:7px">
+            <sc-for list="{{ staples }}" as="chip" hint-placeholder-count="8">
+              <button onClick="{{ chip.onTap }}" aria-pressed="{{ chip.on }}" style="height:38px;padding:0 13px;border-radius:999px;background:{{ chip.bg }};border:1px solid {{ chip.border }};color:{{ chip.color }};font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:6px" style-hover="border-color:#3a332e">
+                <span style="font-size:14px;line-height:1;color:{{ chip.markColor }}">{{ chip.mark }}</span>{{ chip.name }}
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
       <sc-if value="{{ groceryEmpty }}" hint-placeholder-val="{{ false }}">
-        <div style="padding:40px 2px 24px;font-size:15px;color:#8d837a;line-height:1.55">Nothing on the list. Whatever you add shows up on {{ otherName }}'s phone too.</div>
+        <div style="padding:26px 2px 4px;font-size:15px;color:#8d837a;line-height:1.55">Nothing on the list yet. Tap a regular above, or type anything — it shows up on {{ otherName }}'s phone too.</div>
       </sc-if>
 
       <sc-if value="{{ hasWanted }}" hint-placeholder-val="{{ true }}">
@@ -556,7 +572,7 @@ class Component extends DCLogic {
 
   state = {
     view: "home", who: "Kal", detailId: null, laterOpen: false,
-    cal: null, groceries: null, newItem: "",
+    cal: null, groceries: null, staples: null, newItem: "",
     newName: "", newInterval: "", toast: null, notifState: "default",
     pushState: "off", pushError: "",
     // Server mode keeps the log out of the 60s poll and pages it in on demand;
@@ -603,6 +619,7 @@ class Component extends DCLogic {
       fetch("/api/config").then(x => x.json()).then(c => { this.vapid = c.vapidPublicKey; }).catch(() => {});
       this.loadCalendar();
       this.loadGroceries();
+      this.loadStaples();
       this.poll = setInterval(() => this.reload(), 60000);
       if (typeof document !== "undefined") {
         document.addEventListener("visibilitychange", () => { if (!document.hidden) this.reload(); });
@@ -675,6 +692,28 @@ class Component extends DCLogic {
       // small and the server is the truth, so a straight replace is fine.
       this.setState({ groceries: d.items || [] });
     } catch (e) {}
+  }
+
+  async loadStaples() {
+    if (!this.server || this.state.staples) return;
+    try {
+      const r = await fetch("/api/staples");
+      if (r.ok) this.setState({ staples: (await r.json()).staples || [] });
+    } catch (e) {}
+  }
+
+  // A regular chip is a shortcut into the same add/remove the typed list uses,
+  // so tapping it on and off leaves no trace of having been a chip.
+  toggleStaple(name) {
+    const existing = (this.state.groceries || []).find(
+      i => i.name.toLowerCase() === name.toLowerCase() && !i.done
+    );
+    if (existing) { this.removeItem(existing.id); return; }
+    this.setState(s => ({
+      groceries: (s.groceries || []).concat([{ id: "tmp" + Date.now(), name: name, done: false }])
+    }));
+    this.groceryPost("POST", { name: name, who: this.state.who })
+      .then(() => this.loadGroceries());
   }
 
   groceryPost(method, body) {
@@ -1203,6 +1242,23 @@ class Component extends DCLogic {
       onRemove: () => this.removeItem(i.id)
     });
 
+    // A chip reads as "on" only while the item is still wanted — once it's in
+    // the trolley the chip goes quiet again so it can be added to a later shop.
+    const onList = new Set(wantedItems.map(i => i.name.toLowerCase()));
+    const staples = (s.staples || []).map(st => {
+      const on = onList.has(st.name.toLowerCase());
+      return {
+        name: st.name,
+        on: on ? "true" : "false",
+        mark: on ? "✓" : "+",
+        markColor: on ? "#e2683a" : "#6d645c",
+        bg: on ? "#1f1512" : "#131110",
+        border: on ? "#3d2419" : "#242020",
+        color: on ? "#f2ede8" : "#c8bfb6",
+        onTap: () => this.toggleStaple(st.name)
+      };
+    });
+
     return {
       todayLabel: new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }),
       who: s.who,
@@ -1252,7 +1308,9 @@ class Component extends DCLogic {
       clearDone: () => this.clearDone(),
 
       goHome: () => this.setState({ view: "home" }),
-      goGrocery: () => { this.setState({ view: "grocery" }); this.loadGroceries(); },
+      staples: staples,
+      hasStaples: staples.length > 0,
+      goGrocery: () => { this.setState({ view: "grocery" }); this.loadGroceries(); this.loadStaples(); },
       goList: () => this.setState({ view: "list" }),
       goHistory: () => { this.setState({ view: "history" }); this.loadLog(false); },
       goSettings: () => this.setState({ view: "settings" }),
