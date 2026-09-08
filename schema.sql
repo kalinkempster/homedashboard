@@ -73,3 +73,15 @@ insert into tasks (name, interval_days, last_done) values
   ('Laundry', 3, current_date - 2),
   ('Water plants', 7, current_date - 4),
   ('Wash dog bed', 28, current_date - 20);
+
+-- Birthdays and anniversaries. Google builds these from the address book and
+-- never publishes them to an iCal feed, so the dashboard keeps its own copy.
+-- Month and day only: it's an annual date, not an instant.
+create table if not exists birthdays (
+  id    serial primary key,
+  name  text not null,
+  kind  text not null default 'birthday',
+  month integer not null check (month between 1 and 12),
+  day   integer not null check (day between 1 and 31),
+  unique (name, kind)
+);

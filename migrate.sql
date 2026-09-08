@@ -24,3 +24,12 @@ create table if not exists grocery (
   created_at timestamptz not null default now(),
   done_at    timestamptz
 );
+
+create table if not exists birthdays (
+  id    serial primary key,
+  name  text not null,
+  kind  text not null default 'birthday',
+  month integer not null check (month between 1 and 12),
+  day   integer not null check (day between 1 and 31),
+  unique (name, kind)
+);

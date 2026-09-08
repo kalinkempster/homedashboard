@@ -1,10 +1,11 @@
 import { occurrences, todayISO, addDaysISO } from './_ics.js';
+import { sql } from './_db.js';
 
-// Two secret iCal feeds, read server-side so the URLs never reach a phone.
-//   BIRTHDAYS_ICS_URL — the calendar the contact birthdays sit on
-//   FAMILY_ICS_URL    — the shared family calendar
+// The family calendar comes from a secret iCal feed, read server-side so the
+// URL never reaches a phone. Birthdays do not: Google builds those from the
+// address book and never publishes them to a feed, so they live in our own
+// table instead. See api/birthdays.js.
 const FEEDS = {
-  birthdays: process.env.BIRTHDAYS_ICS_URL,
   family: process.env.FAMILY_ICS_URL
 };
 
@@ -27,11 +28,15 @@ async function feed(url) {
   return text;
 }
 
-// Google writes contact birthdays as "<name>'s birthday" / "'s anniversary".
-// Keeping the person's name and dropping the noun reads better on a banner.
-function person(summary) {
-  const m = summary.match(/^(.*?)['’]s (birthday|anniversary)$/i);
-  return m ? { who: m[1], kind: m[2].toLowerCase() } : { who: summary, kind: 'birthday' };
+// The next time this month-and-day comes round, on or after today. Stored
+// without a year, so the only question is whether it has already passed.
+function nextOccurrence(todayStr, month, day) {
+  const [ty, tm, td] = todayStr.split('-').map(Number);
+  const year = (month > tm || (month === tm && day >= td)) ? ty : ty + 1;
+  // 29 February in a common year is marked on the 28th rather than skipped —
+  // a birthday banner that vanishes for three years is not what anyone wants.
+  const d = (month === 2 && day === 29 && new Date(Date.UTC(year, 1, 29)).getUTCDate() !== 29) ? 28 : day;
+  return year + '-' + String(month).padStart(2, '0') + '-' + String(d).padStart(2, '0');
 }
 
 // Reports the shape of each feed without publishing its contents. The personal
@@ -78,28 +83,35 @@ export default async function handler(req, res) {
   const until = addDaysISO(today, WINDOW_DAYS);
   const out = { today, birthdays: [], events: [], sources: {} };
 
-  await Promise.all(Object.entries(FEEDS).map(async ([name, url]) => {
+  const jobs = Object.entries(FEEDS).map(async ([name, url]) => {
     if (!url) { out.sources[name] = 'not configured'; return; }
     try {
-      const items = occurrences(await feed(url), today, until);
-      if (name === 'birthdays') {
-        // The birthday calendar is the personal one, so keep only the entries
-        // that are actually birthdays and anniversaries.
-        out.birthdays = items
-          .filter(e => /['’]s (birthday|anniversary)$/i.test(e.summary))
-          .map(e => ({ ...person(e.summary), date: e.date }));
-      } else {
-        out.events = items.map(e => ({
-          summary: e.summary, date: e.date, time: e.time, allDay: e.allDay
-        }));
-      }
+      out.events = occurrences(await feed(url), today, until).map(e => ({
+        summary: e.summary, date: e.date, time: e.time, allDay: e.allDay
+      }));
       out.sources[name] = 'ok';
     } catch (err) {
       out.sources[name] = 'error: ' + (err.message || 'unknown');
     }
-  }));
+  });
 
-  // Short cache at the edge too, so both phones polling don't each wake a lambda.
-  res.setHeader('cache-control', 'public, max-age=300, stale-while-revalidate=900');
+  jobs.push((async () => {
+    try {
+      const rows = await sql`select * from birthdays`;
+      out.birthdays = rows
+        .map(r => ({ who: r.name, kind: r.kind, date: nextOccurrence(today, r.month, r.day) }))
+        .filter(b => b.date <= until)
+        .sort((a, b) => a.date.localeCompare(b.date));
+      out.sources.birthdays = 'ok';
+    } catch (err) {
+      out.sources.birthdays = 'error: ' + (err.message || 'unknown');
+    }
+  })());
+
+  await Promise.all(jobs);
+
+  // Short cache at the edge, so both phones polling don't each wake a lambda —
+  // but short enough that editing a birthday shows up while you're still looking.
+  res.setHeader('cache-control', 'public, max-age=60, stale-while-revalidate=300');
   res.json(out);
 }
