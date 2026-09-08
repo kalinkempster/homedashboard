@@ -133,7 +133,7 @@
         <div style="margin-top:4px;padding:15px 16px;border-radius:16px;background:#17120f;border:1px solid #2b1f18">
           <div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">
             <svg viewBox="0 0 24 24" style="width:19px;height:19px;color:#e2683a"><use href="#ic-cake"/></svg>
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:#c08a6a">Birthdays</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:#c08a6a">Birthdays &amp; Anniversaries</div>
           </div>
           <sc-for list="{{ birthdays }}" as="b" hint-placeholder-count="2">
             <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:5px 0">
@@ -1210,7 +1210,9 @@ class Component extends DCLogic {
       const n = daysBetweenISO(calToday, b.date);
       const isToday = n === 0;
       return {
-        who: b.who + (b.kind === "anniversary" ? " · anniversary" : ""),
+        // Name the occasion either way — an unlabelled row read as "birthday"
+        // only because the labelled ones next to it said anniversary.
+        who: b.who + (b.kind === "anniversary" ? " · Anniversary" : " · Birthday"),
         when: whenLabel(calToday, b.date, null),
         color: isToday ? "#f2ede8" : "#c8bfb6",
         weight: isToday ? "600" : "400",
