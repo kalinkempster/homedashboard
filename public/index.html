@@ -29,11 +29,64 @@
   input, textarea { font-family:inherit; }
   @keyframes riseIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
   @keyframes toastIn { from { opacity:0; transform:translate(-50%,16px); } to { opacity:1; transform:translate(-50%,0); } }
+  /* The ring that fills while a tile is held, so the long-press is something
+     you can see happening and slide off to cancel. */
+  @keyframes hdfill { from { stroke-dashoffset:57; } to { stroke-dashoffset:0; } }
+  .tile { touch-action:manipulation; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; transition:transform .12s ease, background .16s ease; }
+  .tile:active { transform:scale(0.972); background:#171514 !important; }
 </style>
 </helmet>
 <template id="__bundler_thumbnail">
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#0c0b0a"/><circle cx="34" cy="50" r="13" fill="none" stroke="#c2410c" stroke-width="4"/><rect x="55" y="43" width="26" height="5" rx="2.5" fill="#f2ede8"/><rect x="55" y="54" width="17" height="5" rx="2.5" fill="#8d837a"/></svg>
 </template>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="ic-vacuum" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 3.2h4"/><path d="M12 3.2V13"/><rect x="6.5" y="13" width="11" height="5.2" rx="1.6"/>
+    <path d="M4.5 20.6h15"/><path d="M9 18.2v2.4"/><path d="M15 18.2v2.4"/>
+  </symbol>
+  <symbol id="ic-mop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2.5v8.5"/><path d="M6.5 11h11l-1.2 3.4H7.7z"/>
+    <path d="M8.6 14.4v5"/><path d="M12 14.4v5.8"/><path d="M15.4 14.4v5"/>
+  </symbol>
+  <symbol id="ic-bed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 18v-9"/><path d="M21 18v-5H3"/><path d="M3 13h18"/><rect x="6" y="8" width="5" height="3.5" rx="1.4"/>
+  </symbol>
+  <symbol id="ic-towel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 6h18"/><path d="M7 6v10a2.2 2.2 0 0 0 4.4 0V6"/><path d="M14 6v12"/><path d="M18 6v12"/><path d="M14 18h4"/>
+  </symbol>
+  <symbol id="ic-paw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="12" cy="16" rx="4.2" ry="3.4"/><ellipse cx="6.4" cy="11" rx="1.7" ry="2.2"/>
+    <ellipse cx="17.6" cy="11" rx="1.7" ry="2.2"/><ellipse cx="9.6" cy="7.4" rx="1.7" ry="2.3"/><ellipse cx="14.4" cy="7.4" rx="1.7" ry="2.3"/>
+  </symbol>
+  <symbol id="ic-basket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 9h18l-1.7 9.2a2 2 0 0 1-2 1.8H6.7a2 2 0 0 1-2-1.8z"/>
+    <path d="M8.5 9 11 3.6"/><path d="M15.5 9 13 3.6"/><path d="M9.5 13v3"/><path d="M14.5 13v3"/>
+  </symbol>
+  <symbol id="ic-bin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 7h16"/><path d="M10 4h4"/><path d="M6 7l1 12.2a2 2 0 0 0 2 1.8h6a2 2 0 0 0 2-1.8L18 7"/>
+    <path d="M10 11v6"/><path d="M14 11v6"/>
+  </symbol>
+  <symbol id="ic-toilet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 3h10v5H7z"/><path d="M8 8v3"/><path d="M16 8v3"/>
+    <path d="M5.5 11h13l-1.2 4.6a4 4 0 0 1-3.9 3h-2.8a4 4 0 0 1-3.9-3z"/>
+    <path d="M10 18.6 9 21.5"/><path d="M14 18.6l1 2.9"/>
+  </symbol>
+  <symbol id="ic-washer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="4" y="3" width="16" height="18" rx="2.4"/><path d="M4 7.5h16"/>
+    <circle cx="12" cy="14" r="4"/><circle cx="12" cy="14" r="1.4"/>
+    <circle cx="7.2" cy="5.2" r=".7" fill="currentColor" stroke="none"/>
+  </symbol>
+  <symbol id="ic-plant" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6.5 13h11l-1.1 7.2a1 1 0 0 1-1 .8H8.6a1 1 0 0 1-1-.8z"/><path d="M12 13V7"/>
+    <path d="M12 9c0-2.2-1.7-4-3.8-4 0 2.2 1.7 4 3.8 4z"/><path d="M12 10.5c0-2.2 1.7-4 3.8-4 0 2.2-1.7 4-3.8 4z"/>
+  </symbol>
+  <symbol id="ic-dogbed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2.6" y="9.5" width="18.8" height="9.4" rx="4.2"/><rect x="5.8" y="12.6" width="12.4" height="6.3" rx="2.6"/>
+  </symbol>
+  <symbol id="ic-task" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 12.2l2.6 2.6 4.4-5"/>
+  </symbol>
+</defs></svg>
 <div style="min-height:100vh;background:#0c0b0a;color:#f2ede8;font-family:'Hanken Grotesk',system-ui,sans-serif;display:flex;justify-content:center">
 <div style="width:100%;max-width:460px;min-height:100vh;display:flex;flex-direction:column;position:relative;background:#0c0b0a">
 
@@ -65,7 +118,36 @@
         </div>
       </sc-if>
 
-      <sc-for list="{{ sections }}" as="section" hint-placeholder-count="3">
+      <sc-if value="{{ gridLayout }}" hint-placeholder-val="{{ true }}">
+        <sc-for list="{{ tileSections }}" as="section" hint-placeholder-count="3">
+          <div style="margin-top:22px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:{{ section.tint }}">{{ section.label }}</div>
+              <div style="flex:1;height:1px;background:#1b1817"></div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8d837a">{{ section.count }}</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+              <sc-for list="{{ section.tasks }}" as="task" hint-placeholder-count="4">
+                <button class="tile" onPointerDown="{{ task.onDown }}" onPointerUp="{{ task.onUp }}" onPointerMove="{{ task.onMove }}" onPointerCancel="{{ task.onCancel }}" onPointerLeave="{{ task.onCancel }}" aria-label="{{ task.aria }}" style="grid-column:{{ task.span }};position:relative;overflow:hidden;display:flex;flex-direction:{{ task.dir }};align-items:{{ task.align }};gap:{{ task.gap }};min-height:{{ task.minh }};padding:{{ task.pad }};border-radius:16px;background:#131110;border:1px solid {{ task.border }};color:#f2ede8;text-align:left">
+                  <span style="position:absolute;top:0;left:0;right:0;height:2px;background:{{ task.stripe }}"></span>
+                  <svg viewBox="0 0 24 24" style="width:30px;height:30px;flex-shrink:0;color:{{ task.accent }};margin-bottom:{{ task.icgap }}"><use href="#{{ task.icon }}"/></svg>
+                  <span style="position:absolute;top:12px;right:12px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8d837a;opacity:{{ task.badgeOpacity }}">{{ task.streakBadge }}</span>
+                  <svg viewBox="0 0 22 22" style="position:absolute;top:10px;right:10px;width:22px;height:22px;opacity:{{ task.ringOpacity }}">
+                    <circle cx="11" cy="11" r="9" fill="none" stroke="#2a2523" stroke-width="2.5"/>
+                    <circle cx="11" cy="11" r="9" fill="none" stroke="#e2683a" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="57" stroke-dashoffset="57" style="transform:rotate(-90deg);transform-origin:center;animation:{{ task.ringAnim }}"/>
+                  </svg>
+                  <span style="display:flex;flex-direction:column;min-width:0">
+                    <span style="font-size:{{ task.namesize }};font-weight:600;letter-spacing:-0.01em;line-height:1.25">{{ task.name }}</span>
+                    <span style="margin-top:3px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ task.accent }}">{{ task.stat }}</span>
+                  </span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </sc-if>
+
+      <sc-for list="{{ rowSections }}" as="section" hint-placeholder-count="3">
         <div style="margin-top:22px">
           <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 2px 9px;border-bottom:1px solid #1d1a18;margin-bottom:4px">
             <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:{{ section.tint }}">{{ section.label }}</div>
@@ -217,6 +299,15 @@
         </div>
       </sc-if>
 
+      <div style="margin-top:24px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#968c83;margin-bottom:9px">Layout</div>
+        <div style="display:flex;gap:4px;padding:4px;background:#131110;border:1px solid #1b1817;border-radius:12px">
+          <button onClick="{{ useTiles }}" style="flex:1;height:40px;border-radius:9px;background:{{ tilesBg }};color:{{ tilesColor }};font-size:13.5px;font-weight:500" style-hover="color:#f2ede8">Tiles</button>
+          <button onClick="{{ useRows }}" style="flex:1;height:40px;border-radius:9px;background:{{ rowsBg }};color:{{ rowsColor }};font-size:13.5px;font-weight:500" style-hover="color:#f2ede8">List</button>
+        </div>
+        <div style="margin-top:8px;font-size:13px;color:#8d837a;line-height:1.55">Tiles: tap to tick a job off, press and hold to open it.</div>
+      </div>
+
       <div style="display:flex;flex-direction:column;gap:9px;margin-top:22px">
         <button onClick="{{ testLocal }}" style="height:50px;border-radius:12px;background:#151312;border:1px solid #242020;color:#e8ded6;font-size:14.5px;font-weight:500" style-hover="background:#1c1918">Test an alert on this phone</button>
         <button onClick="{{ reRegister }}" style="height:50px;border-radius:12px;background:#151312;border:1px solid #242020;color:#e8ded6;font-size:14.5px;font-weight:500" style-hover="background:#1c1918">Re-register this phone for alerts</button>
@@ -265,6 +356,38 @@ function dayToMs(v) {
 }
 function iso(ms) { const d = new Date(ms); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
 function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
+// Tiles are named by picture as much as by word, so each job is matched to a
+// glyph from its name. Order matters — "Wash dog bed" is a bed, not a wash, and
+// "Change bed sheets" is neither. Anything unrecognised gets the generic mark.
+const ICONS = [
+  [/dog bed|pet bed|cat bed/i, "ic-dogbed"],
+  [/vacuum|hoover/i,           "ic-vacuum"],
+  [/mop/i,                     "ic-mop"],
+  [/sheet|linen|duvet/i,       "ic-bed"],
+  [/towel/i,                   "ic-towel"],
+  [/poo|poop|litter/i,         "ic-paw"],
+  [/groc|shop|market/i,        "ic-basket"],
+  [/bin|rubbish|trash|recycl/i,"ic-bin"],
+  [/toilet|loo|bathroom/i,     "ic-toilet"],
+  [/laundry|washing|clothes/i, "ic-washer"],
+  [/plant|garden|water|lawn/i, "ic-plant"],
+  [/dog|cat|pet/i,             "ic-paw"]
+];
+// Returns the bare id; the template supplies the "#" so the pre-hydration
+// placeholder reads as a fragment and never fires off a request for it.
+function iconFor(name) {
+  for (const [re, id] of ICONS) if (re.test(name)) return id;
+  return "ic-task";
+}
+
+// A tile has room for the number, not the sentence.
+function shortStatus(d) {
+  if (d < 0) return -d + "d overdue";
+  if (d === 0) return "Due today";
+  if (d === 1) return "Tomorrow";
+  return "In " + d + "d";
+}
+
 function everyLabel(n) {
   if (n % 7 === 0 && n >= 7 && n < 60) { const w = n / 7; return w === 1 ? "week" : w + " wks"; }
   if (n >= 60) { const m = Math.round(n / 30); return m + " mth" + (m === 1 ? "" : "s"); }
@@ -282,6 +405,7 @@ class Component extends DCLogic {
     // Server mode keeps the log out of the 60s poll and pages it in on demand;
     // null means "not fetched yet" as opposed to "fetched and empty".
     log: null, logMore: false, logBusy: false, detailLog: null,
+    layout: "tiles", holdingId: null,
     tasks: SEED.map((s, i) => ({
       id: "t" + i, name: s[0], interval: s[1],
       lastDone: startOfDay(Date.now() - s[2] * DAY),
@@ -296,6 +420,8 @@ class Component extends DCLogic {
     try {
       const w = localStorage.getItem("homedash.who");
       if (w) this.setState({ who: w });
+      const l = localStorage.getItem("homedash.layout");
+      if (l === "tiles" || l === "rows") this.setState({ layout: l });
     } catch (e) {}
     if (typeof Notification !== "undefined") this.setState({ notifState: Notification.permission });
     this.registerWorker();
@@ -417,6 +543,7 @@ class Component extends DCLogic {
   persist() {
     try {
       localStorage.setItem("homedash.who", this.state.who);
+      localStorage.setItem("homedash.layout", this.state.layout);
       if (!this.server) localStorage.setItem("homedash.v2", JSON.stringify({ tasks: this.state.tasks }));
     } catch (e) {}
   }
@@ -435,6 +562,46 @@ class Component extends DCLogic {
     return "In " + plural(d, "day") + who;
   }
   tint(t) { const d = this.daysUntil(t); return d < 0 ? "#e2683a" : d === 0 ? "#d9a441" : "#968c83"; }
+
+  // Tiles: a tap ticks the job off, a held press opens it. The press cancels if
+  // the finger travels, so a tile can be scrolled past without ticking it, and
+  // the ring gives the hold something visible to happen against.
+  HOLD_MS = 480;
+
+  pressStart(id, e) {
+    this.pressCancel();
+    const press = { id: id, x: e.clientX, y: e.clientY, held: false };
+    press.timer = setTimeout(() => {
+      if (this._press !== press) return;
+      press.held = true;
+      press.timer = null;
+      this.setState({ holdingId: null });
+      if (navigator.vibrate) navigator.vibrate(12);
+      this.setState({ view: "detail", detailId: id });
+      this.loadDetailLog(id);
+    }, this.HOLD_MS);
+    this._press = press;
+    this.setState({ holdingId: id });
+  }
+
+  pressMove(e) {
+    const p = this._press;
+    if (!p || !p.timer) return;
+    if (Math.abs(e.clientX - p.x) > 10 || Math.abs(e.clientY - p.y) > 10) this.pressCancel();
+  }
+
+  pressEnd(id) {
+    const p = this._press;
+    this.pressCancel();
+    if (p && p.id === id && !p.held) this.complete(id);
+  }
+
+  pressCancel() {
+    const p = this._press;
+    if (p && p.timer) clearTimeout(p.timer);
+    this._press = null;
+    if (this.state.holdingId !== null) this.setState({ holdingId: null });
+  }
 
   mutate(id, fn) {
     this.setState(s => ({ tasks: s.tasks.map(t => t.id === id ? fn(Object.assign({}, t)) : t) }));
@@ -662,6 +829,52 @@ class Component extends DCLogic {
     }));
     const later = sorted.filter(t => this.daysUntil(t) > 3);
     const next = sorted[0];
+    const grid = s.layout === "tiles";
+
+    // A tile, and a section of one that spreads across the row rather than
+    // leaving half of it empty beside the most urgent job on the screen.
+    const tile = (t, solo) => {
+      const dd = this.daysUntil(t);
+      const accent = dd < 0 ? "#e2683a" : dd === 0 ? "#d9a441" : "#a49a91";
+      const holding = s.holdingId === t.id;
+      return {
+        name: t.name,
+        icon: iconFor(t.name),
+        stat: solo ? this.statusLine(t) : shortStatus(dd),
+        aria: t.name + ", " + this.statusLine(t) + ". Tap to tick off, hold to open.",
+        accent: accent,
+        stripe: dd < 0 ? "#e2683a" : dd === 0 ? "#d9a441" : "transparent",
+        border: dd < 0 ? "#33231c" : dd === 0 ? "#2e2820" : "#242020",
+        streakBadge: t.streak >= 2 ? "×" + t.streak : "",
+        span: solo ? "1 / -1" : "auto",
+        dir: solo ? "row" : "column",
+        align: solo ? "center" : "stretch",
+        gap: solo ? "15px" : "0px",
+        minh: solo ? "0px" : "132px",
+        pad: solo ? "16px" : "14px",
+        icgap: solo ? "0px" : "auto",
+        namesize: solo ? "16.5px" : "15px",
+        ringOpacity: holding ? "1" : "0",
+        ringAnim: holding ? "hdfill 480ms linear forwards" : "none",
+        badgeOpacity: holding ? "0" : "1",
+        onDown: e => this.pressStart(t.id, e),
+        onUp: () => this.pressEnd(t.id),
+        onMove: e => this.pressMove(e),
+        onCancel: () => this.pressCancel()
+      };
+    };
+
+    // Tiles are compact enough to show everything at once, so they collapse the
+    // four row buckets into three and drop the "not due yet" disclosure.
+    const tileDefs = [
+      { label: "Overdue",   tint: "#e2683a", tasks: sorted.filter(t => this.daysUntil(t) < 0) },
+      { label: "Due today", tint: "#d9a441", tasks: bucket(0, 0) },
+      { label: "Coming up", tint: "#7d746c", tasks: sorted.filter(t => this.daysUntil(t) > 0) }
+    ];
+    const tileSections = !grid ? [] : tileDefs.filter(d => d.tasks.length).map(d => ({
+      label: d.label, tint: d.tint, count: d.tasks.length,
+      tasks: d.tasks.map(t => tile(t, d.tasks.length === 1))
+    }));
 
     const d = s.detailId ? live.find(t => t.id === s.detailId) : null;
     // On the server the log is fetched per task; offline it lives on the task.
@@ -723,12 +936,21 @@ class Component extends DCLogic {
       listTabBg: tl.bg, listTabColor: tl.color, historyTabBg: th.bg, historyTabColor: th.color,
       settingsTabBg: ts.bg, settingsTabColor: ts.color,
 
-      sections: sections,
+      gridLayout: grid,
+      tileSections: tileSections,
+      rowSections: grid ? [] : sections,
+      useTiles: () => this.setState({ layout: "tiles" }),
+      useRows: () => this.setState({ layout: "rows" }),
+      tilesBg: grid ? "#221e1c" : "transparent",
+      tilesColor: grid ? "#f2ede8" : "#7d746c",
+      rowsBg: grid ? "transparent" : "#221e1c",
+      rowsColor: grid ? "#7d746c" : "#f2ede8",
+
       allClear: sections.length === 0,
       nextTaskName: next ? next.name : "",
       nextTaskIn: next ? plural(Math.max(this.daysUntil(next), 0), "day") : "",
-      hasLater: later.length > 0 && !s.laterOpen,
-      laterOpen: s.laterOpen,
+      hasLater: !grid && later.length > 0 && !s.laterOpen,
+      laterOpen: !grid && s.laterOpen,
       laterLabel: "Show " + later.length + " not due yet",
       laterTasks: later.map(row),
       toggleLater: () => this.setState({ laterOpen: !s.laterOpen }),
