@@ -453,10 +453,17 @@ class Component extends DCLogic {
         document.addEventListener("visibilitychange", () => { if (!document.hidden) this.reload(); });
       }
     } catch (e) {
+      // Unreachable API: fall back to the last snapshot. A snapshot taken while
+      // talking to the server is the real job list and is worth showing; one
+      // from a standalone prototype run is only ever seed data.
       this.server = false;
       try {
         const raw = localStorage.getItem("homedash.v2");
-        if (raw) { const p = JSON.parse(raw); if (p.tasks) this.setState({ tasks: p.tasks }); }
+        if (raw) {
+          const p = JSON.parse(raw);
+          if (p.tasks) this.setState({ tasks: p.tasks });
+          this.stale = p.real === true;
+        }
       } catch (e2) {}
     }
   }
@@ -544,7 +551,12 @@ class Component extends DCLogic {
     try {
       localStorage.setItem("homedash.who", this.state.who);
       localStorage.setItem("homedash.layout", this.state.layout);
-      if (!this.server) localStorage.setItem("homedash.v2", JSON.stringify({ tasks: this.state.tasks }));
+      // Only snapshot once boot has settled which mode we're in. Writing during
+      // the unknown window stamped the prototype's seed chores over the
+      // snapshot, so any later boot hiccup restored demo data as if it were real.
+      if (typeof this.server === "boolean") {
+        localStorage.setItem("homedash.v2", JSON.stringify({ tasks: this.state.tasks, real: this.server }));
+      }
     } catch (e) {}
   }
 
