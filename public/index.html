@@ -86,6 +86,23 @@
   <symbol id="ic-task" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
     <rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 12.2l2.6 2.6 4.4-5"/>
   </symbol>
+  <symbol id="ic-cake" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.5 20.5h17"/>
+    <path d="M4.5 20.5v-5.2a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v5.2"/>
+    <path d="M4.5 16.4c1.6 1.2 3.2 1.2 4.8 0s3.2-1.2 4.8 0 3.2 1.2 4.9 0"/>
+    <path d="M8.6 13.3V10"/><path d="M12 13.3V9.4"/><path d="M15.4 13.3V10"/>
+    <path d="M8.6 8.2a.9.9 0 1 1 1.8 0c0 .6-.9 1.2-.9 1.2s-.9-.6-.9-1.2z"/>
+  </symbol>
+  <symbol id="ic-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3.5" y="5" width="17" height="15.5" rx="2.4"/><path d="M3.5 9.6h17"/>
+    <path d="M8 3.2v3.4"/><path d="M16 3.2v3.4"/>
+    <circle cx="8.4" cy="13.6" r=".9" fill="currentColor" stroke="none"/>
+    <circle cx="12" cy="13.6" r=".9" fill="currentColor" stroke="none"/>
+  </symbol>
+  <symbol id="ic-checklist" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.5 6.6l1.7 1.7 3-3.2"/><path d="M3.5 14.2l1.7 1.7 3-3.2"/>
+    <path d="M11 6.8h9.5"/><path d="M11 14.4h9.5"/><path d="M11 20h6"/>
+  </symbol>
 </defs></svg>
 <div style="min-height:100vh;background:#0c0b0a;color:#f2ede8;font-family:'Hanken Grotesk',system-ui,sans-serif;display:flex;justify-content:center">
 <div style="width:100%;max-width:460px;min-height:100vh;display:flex;flex-direction:column;position:relative;background:#0c0b0a">
@@ -109,8 +126,110 @@
     </div>
   </sc-if>
 
-  <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+    <main style="flex:1;padding:0 20px 120px;animation:riseIn 0.28s ease both">
+
+      <sc-if value="{{ hasBirthdays }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:4px;padding:15px 16px;border-radius:16px;background:#17120f;border:1px solid #2b1f18">
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">
+            <svg viewBox="0 0 24 24" style="width:19px;height:19px;color:#e2683a"><use href="#ic-cake"/></svg>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:#c08a6a">Birthdays</div>
+          </div>
+          <sc-for list="{{ birthdays }}" as="b" hint-placeholder-count="2">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:5px 0">
+              <span style="font-size:15.5px;font-weight:{{ b.weight }};color:{{ b.color }};min-width:0">{{ b.who }}</span>
+              <span style="flex-shrink:0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:{{ b.whenColor }}">{{ b.when }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ hasEvents }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:12px;padding:15px 16px;border-radius:16px;background:#131110;border:1px solid #1e1b19">
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">
+            <svg viewBox="0 0 24 24" style="width:19px;height:19px;color:#8d837a"><use href="#ic-calendar"/></svg>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:#968c83">On the family calendar</div>
+          </div>
+          <sc-for list="{{ events }}" as="e" hint-placeholder-count="3">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:5px 0">
+              <span style="font-size:15px;color:{{ e.color }};min-width:0">{{ e.summary }}</span>
+              <span style="flex-shrink:0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:{{ e.whenColor }}">{{ e.when }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ calProblem }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:12px;padding:14px 16px;border-radius:14px;background:#131110;border:1px solid #1e1b19;font-size:13.5px;color:#8d837a;line-height:1.55">{{ calMessage }}</div>
+      </sc-if>
+
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px">
+        <button onClick="{{ goList }}" style="position:relative;display:flex;flex-direction:column;min-height:138px;padding:15px;border-radius:16px;background:#131110;border:1px solid {{ tasksTileBorder }};color:#f2ede8;text-align:left" style-hover="background:#171514">
+          <span style="position:absolute;top:0;left:0;right:0;height:2px;background:{{ tasksTileStripe }}"></span>
+          <svg viewBox="0 0 24 24" style="width:30px;height:30px;color:{{ tasksTileAccent }};margin-bottom:auto"><use href="#ic-checklist"/></svg>
+          <span style="margin-top:12px;font-size:15.5px;font-weight:600;letter-spacing:-0.01em">Household Tasks</span>
+          <span style="margin-top:3px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ tasksTileAccent }}">{{ tasksSummary }}</span>
+        </button>
+        <button onClick="{{ goGrocery }}" style="position:relative;display:flex;flex-direction:column;min-height:138px;padding:15px;border-radius:16px;background:#131110;border:1px solid #242020;color:#f2ede8;text-align:left" style-hover="background:#171514">
+          <svg viewBox="0 0 24 24" style="width:30px;height:30px;color:#a49a91;margin-bottom:auto"><use href="#ic-basket"/></svg>
+          <span style="margin-top:12px;font-size:15.5px;font-weight:600;letter-spacing:-0.01em">Grocery List</span>
+          <span style="margin-top:3px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8d837a">{{ grocerySummary }}</span>
+        </button>
+      </div>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{ isGrocery }}" hint-placeholder-val="{{ false }}">
+    <main style="flex:1;padding:0 20px 120px;animation:riseIn 0.28s ease both">
+      <div style="display:flex;gap:9px;margin-top:4px">
+        <input value="{{ newItem }}" onChange="{{ setNewItem }}" onKeyDown="{{ itemKey }}" placeholder="Add something" enterkeyhint="done" style="flex:1;min-width:0;height:50px;padding:0 14px;border-radius:12px;background:#131110;border:1px solid #242020;color:#f2ede8;font-size:15.5px" />
+        <button onClick="{{ addItem }}" style="flex-shrink:0;height:50px;padding:0 20px;border-radius:12px;background:#c2410c;color:#fff;font-size:14.5px;font-weight:600" style-hover="background:#d24e15">Add</button>
+      </div>
+
+      <sc-if value="{{ groceryEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:40px 2px 24px;font-size:15px;color:#8d837a;line-height:1.55">Nothing on the list. Whatever you add shows up on {{ otherName }}'s phone too.</div>
+      </sc-if>
+
+      <sc-if value="{{ hasWanted }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:22px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:#968c83">To buy</div>
+            <div style="flex:1;height:1px;background:#1b1817"></div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8d837a">{{ wantedCount }}</div>
+          </div>
+          <sc-for list="{{ wanted }}" as="item" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #151312">
+              <button onClick="{{ item.onToggle }}" aria-label="Tick off" style="flex-shrink:0;width:30px;height:30px;border-radius:999px;border:1.5px solid #332e2a;background:#131110;color:#6d645c;font-size:14px;display:flex;align-items:center;justify-content:center" style-hover="border-color:#c2410c;color:#f2ede8">✓</button>
+              <button onClick="{{ item.onToggle }}" style="flex:1;min-width:0;text-align:left;color:#f2ede8;font-size:16px;padding:2px 0">{{ item.name }}</button>
+              <button onClick="{{ item.onRemove }}" aria-label="Remove" style="flex-shrink:0;width:30px;height:30px;border-radius:8px;color:#5c554f;font-size:16px" style-hover="color:#e2683a">×</button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ hasDone }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:26px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:#6d645c">In the trolley</div>
+            <div style="flex:1;height:1px;background:#1b1817"></div>
+            <button onClick="{{ clearDone }}" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;color:#8d837a" style-hover="color:#e2683a">Clear</button>
+          </div>
+          <sc-for list="{{ done }}" as="item" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #131110">
+              <button onClick="{{ item.onToggle }}" aria-label="Put back" style="flex-shrink:0;width:30px;height:30px;border-radius:999px;border:1.5px solid #2a2523;background:#1a1716;color:#8d837a;font-size:14px;display:flex;align-items:center;justify-content:center">✓</button>
+              <button onClick="{{ item.onToggle }}" style="flex:1;min-width:0;text-align:left;color:#6d645c;font-size:15.5px;text-decoration:line-through;padding:2px 0">{{ item.name }}</button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{ isList }}" hint-placeholder-val="{{ false }}">
     <main style="flex:1;padding:0 20px 120px">
+      <div style="display:flex;justify-content:flex-end;margin-top:2px">
+        <button onClick="{{ goHistory }}" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;color:#8d837a;padding:4px 2px" style-hover="color:#f2ede8">History ›</button>
+      </div>
       <sc-if value="{{ allClear }}" hint-placeholder-val="{{ false }}">
         <div style="padding:44px 4px 30px;animation:riseIn 0.4s ease both">
           <div style="font-size:34px;font-weight:600;letter-spacing:-0.03em;margin-bottom:8px">Nothing due</div>
@@ -320,9 +439,10 @@
   </sc-if>
 
   <nav style="position:sticky;bottom:0;display:flex;gap:4px;padding:9px 14px 18px;background:linear-gradient(to top,#0c0b0a 62%,rgba(12,11,10,0));backdrop-filter:blur(6px)">
-    <button onClick="{{ goList }}" style="flex:1;height:50px;border-radius:12px;font-size:14px;font-weight:500;background:{{ listTabBg }};color:{{ listTabColor }}" style-hover="color:#f2ede8">Jobs</button>
-    <button onClick="{{ goHistory }}" style="flex:1;height:50px;border-radius:12px;font-size:14px;font-weight:500;background:{{ historyTabBg }};color:{{ historyTabColor }}" style-hover="color:#f2ede8">History</button>
-    <button onClick="{{ goSettings }}" style="flex:1;height:50px;border-radius:12px;font-size:14px;font-weight:500;background:{{ settingsTabBg }};color:{{ settingsTabColor }}" style-hover="color:#f2ede8">Setup</button>
+    <button onClick="{{ goHome }}" style="flex:1;height:50px;border-radius:12px;font-size:13.5px;font-weight:500;background:{{ homeTabBg }};color:{{ homeTabColor }}" style-hover="color:#f2ede8">Home</button>
+    <button onClick="{{ goList }}" style="flex:1;height:50px;border-radius:12px;font-size:13.5px;font-weight:500;background:{{ listTabBg }};color:{{ listTabColor }}" style-hover="color:#f2ede8">Tasks</button>
+    <button onClick="{{ goGrocery }}" style="flex:1;height:50px;border-radius:12px;font-size:13.5px;font-weight:500;background:{{ groceryTabBg }};color:{{ groceryTabColor }}" style-hover="color:#f2ede8">Grocery</button>
+    <button onClick="{{ goSettings }}" style="flex:1;height:50px;border-radius:12px;font-size:13.5px;font-weight:500;background:{{ settingsTabBg }};color:{{ settingsTabColor }}" style-hover="color:#f2ede8">Setup</button>
   </nav>
 
   <sc-if value="{{ toastOpen }}" hint-placeholder-val="{{ false }}">
@@ -380,6 +500,29 @@ function iconFor(name) {
   return "ic-task";
 }
 
+// Calendar dates arrive as YYYY-MM-DD already resolved to the household's day,
+// so they're compared as plain dates and never re-interpreted as instants.
+function daysBetweenISO(a, b) {
+  const p = s => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); };
+  return Math.round((p(b) - p(a)) / DAY);
+}
+function whenLabel(todayISO, dateISO, time) {
+  const n = daysBetweenISO(todayISO, dateISO);
+  const clock = time ? " · " + friendlyTime(time) : "";
+  if (n === 0) return "Today" + clock;
+  if (n === 1) return "Tomorrow" + clock;
+  const [y, m, d] = dateISO.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  const day = dt.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  return n < 7 ? day + clock : day;
+}
+function friendlyTime(t) {
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h < 12 ? "am" : "pm";
+  const hh = h % 12 === 0 ? 12 : h % 12;
+  return m === 0 ? hh + ampm : hh + ":" + String(m).padStart(2, "0") + ampm;
+}
+
 // A tile has room for the number, not the sentence.
 function shortStatus(d) {
   if (d < 0) return -d + "d overdue";
@@ -412,7 +555,8 @@ class Component extends DCLogic {
   pendingNotes = {};
 
   state = {
-    view: "list", who: "Kal", detailId: null, laterOpen: false,
+    view: "home", who: "Kal", detailId: null, laterOpen: false,
+    cal: null, groceries: null, newItem: "",
     newName: "", newInterval: "", toast: null, notifState: "default",
     pushState: "off", pushError: "",
     // Server mode keeps the log out of the 60s poll and pages it in on demand;
@@ -457,6 +601,8 @@ class Component extends DCLogic {
       this.applyServer(data);
       this.setState({ booted: true });
       fetch("/api/config").then(x => x.json()).then(c => { this.vapid = c.vapidPublicKey; }).catch(() => {});
+      this.loadCalendar();
+      this.loadGroceries();
       this.poll = setInterval(() => this.reload(), 60000);
       if (typeof document !== "undefined") {
         document.addEventListener("visibilitychange", () => { if (!document.hidden) this.reload(); });
@@ -506,6 +652,37 @@ class Component extends DCLogic {
   async reload() {
     if (!this.server) return;
     try { const r = await fetch("/api/tasks"); if (r.ok) this.applyServer(await r.json()); } catch (e) {}
+    this.loadGroceries();
+  }
+
+  // Calendars change slowly and the server caches the feeds, so this runs once
+  // a session rather than on the 60s poll.
+  async loadCalendar() {
+    if (!this.server) return;
+    try {
+      const r = await fetch("/api/calendar");
+      if (r.ok) this.setState({ cal: await r.json() });
+    } catch (e) {}
+  }
+
+  async loadGroceries() {
+    if (!this.server) return;
+    try {
+      const r = await fetch("/api/grocery");
+      if (!r.ok) return;
+      const d = await r.json();
+      // Don't clobber an item the other phone is mid-way through; the list is
+      // small and the server is the truth, so a straight replace is fine.
+      this.setState({ groceries: d.items || [] });
+    } catch (e) {}
+  }
+
+  groceryPost(method, body) {
+    return fetch("/api/grocery", {
+      method: method,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body || {})
+    }).catch(() => {});
   }
 
   // The whole log, newest first, a page at a time. `more` appends the next page
@@ -584,6 +761,48 @@ class Component extends DCLogic {
     return "In " + plural(d, "day") + who;
   }
   tint(t) { const d = this.daysUntil(t); return d < 0 ? "#e2683a" : d === 0 ? "#d9a441" : "#968c83"; }
+
+  // Grocery items move optimistically and reconcile on the reply, the same way
+  // ticking a job does — the list has to feel instant in a supermarket aisle.
+  addItem() {
+    const name = this.state.newItem.trim();
+    if (!name) return;
+    this.setState({ newItem: "" });
+    if (!this.server) return;
+    this.groceryPost("POST", { name: name, who: this.state.who })
+      .then(() => this.loadGroceries());
+  }
+
+  toggleItem(id, done) {
+    this.setState(s => ({
+      groceries: (s.groceries || []).map(i => i.id === id ? { ...i, done: done } : i)
+    }));
+    this.groceryPost("PATCH", { id: id, done: done, who: this.state.who })
+      .then(() => this.loadGroceries());
+  }
+
+  removeItem(id) {
+    const gone = (this.state.groceries || []).find(i => i.id === id);
+    this.setState(s => ({ groceries: (s.groceries || []).filter(i => i.id !== id) }));
+    this.groceryPost("DELETE", { id: id });
+    if (gone) {
+      this.showToast(gone.name + " removed", () => {
+        this.groceryPost("POST", { name: gone.name, who: this.state.who })
+          .then(() => this.loadGroceries());
+      });
+    }
+  }
+
+  clearDone() {
+    const cleared = (this.state.groceries || []).filter(i => i.done);
+    if (!cleared.length) return;
+    this.setState(s => ({ groceries: (s.groceries || []).filter(i => !i.done) }));
+    this.groceryPost("DELETE", { clearDone: true });
+    this.showToast(plural(cleared.length, "item") + " cleared", () => {
+      Promise.all(cleared.map(i => this.groceryPost("POST", { name: i.name, who: i.added_by })))
+        .then(() => this.loadGroceries());
+    });
+  }
 
   // Tiles: a tap ticks the job off, a held press opens it. The press cancels if
   // the finger travels, so a tile can be scrolled past without ticking it, and
@@ -927,8 +1146,59 @@ class Component extends DCLogic {
       });
     });
 
-    const tab = v => ({ bg: s.view === v ? "#1c1917" : "transparent", color: s.view === v ? "#f2ede8" : "#7d746c" });
-    const tl = tab("list"), th = tab("history"), ts = tab("settings");
+    // The jobs tab stays lit while you're inside a job's detail or its history,
+    // because you haven't left that section.
+    const inTasks = s.view === "list" || s.view === "detail" || s.view === "history";
+    const tab = on => ({ bg: on ? "#1c1917" : "transparent", color: on ? "#f2ede8" : "#7d746c" });
+    const tho = tab(s.view === "home"), tl = tab(inTasks),
+          tg = tab(s.view === "grocery"), ts = tab(s.view === "settings");
+
+    // ---- home ----
+    const cal = s.cal;
+    const calToday = cal ? cal.today : null;
+    const birthdays = (cal && cal.birthdays ? cal.birthdays : []).slice(0, 4).map(b => {
+      const n = daysBetweenISO(calToday, b.date);
+      const isToday = n === 0;
+      return {
+        who: b.who + (b.kind === "anniversary" ? " · anniversary" : ""),
+        when: whenLabel(calToday, b.date, null),
+        color: isToday ? "#f2ede8" : "#c8bfb6",
+        weight: isToday ? "600" : "400",
+        whenColor: isToday ? "#e2683a" : "#8d837a"
+      };
+    });
+    const events = (cal && cal.events ? cal.events : []).slice(0, 5).map(e => {
+      const n = daysBetweenISO(calToday, e.date);
+      return {
+        summary: e.summary,
+        when: whenLabel(calToday, e.date, e.time),
+        color: n === 0 ? "#f2ede8" : "#c8bfb6",
+        whenColor: n === 0 ? "#d9a441" : "#8d837a"
+      };
+    });
+
+    // Only worth saying something when a feed is actually misconfigured; a
+    // quiet fortnight isn't a problem to report.
+    const src = cal && cal.sources ? cal.sources : {};
+    const broken = Object.keys(src).filter(k => src[k] && src[k] !== "ok");
+    const calProblem = !!cal && broken.length > 0 && birthdays.length === 0 && events.length === 0;
+
+    const overdueCount = live.filter(t => this.daysUntil(t) < 0).length;
+    const todayCount = bucket(0, 0).length;
+    const tasksSummary = overdueCount ? plural(overdueCount, "job") + " overdue"
+      : todayCount ? plural(todayCount, "job") + " due today"
+      : next ? "Next in " + plural(Math.max(this.daysUntil(next), 0), "day")
+      : "Nothing due";
+
+    // ---- grocery ----
+    const items = s.groceries || [];
+    const wantedItems = items.filter(i => !i.done);
+    const doneItems = items.filter(i => i.done);
+    const groceryRow = i => ({
+      name: i.name,
+      onToggle: () => this.toggleItem(i.id, !i.done),
+      onRemove: () => this.removeItem(i.id)
+    });
 
     return {
       todayLabel: new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }),
@@ -949,13 +1219,44 @@ class Component extends DCLogic {
       testLocal: this.testLocal,
       reRegister: this.reRegister,
 
+      isHome: s.view === "home", isGrocery: s.view === "grocery",
       isList: s.view === "list", isDetail: s.view === "detail" && !!d,
       isHistory: s.view === "history", isSettings: s.view === "settings",
+
+      hasBirthdays: birthdays.length > 0,
+      birthdays: birthdays,
+      hasEvents: events.length > 0,
+      events: events,
+      calProblem: calProblem,
+      calMessage: "The calendar feeds aren't set up yet — add BIRTHDAYS_ICS_URL and FAMILY_ICS_URL in Vercel, then redeploy.",
+      tasksSummary: tasksSummary,
+      tasksTileAccent: overdueCount ? "#e2683a" : todayCount ? "#d9a441" : "#a49a91",
+      tasksTileStripe: overdueCount ? "#e2683a" : todayCount ? "#d9a441" : "transparent",
+      tasksTileBorder: overdueCount ? "#33231c" : todayCount ? "#2e2820" : "#242020",
+      grocerySummary: wantedItems.length ? plural(wantedItems.length, "item") : "Empty",
+
+      wanted: wantedItems.map(groceryRow),
+      done: doneItems.map(groceryRow),
+      hasWanted: wantedItems.length > 0,
+      hasDone: doneItems.length > 0,
+      wantedCount: wantedItems.length,
+      groceryEmpty: items.length === 0,
+      otherName: s.who === "Kal" ? "Lara" : "Kal",
+      newItem: s.newItem,
+      setNewItem: e => this.setState({ newItem: e.target.value }),
+      itemKey: e => { if (e.key === "Enter") this.addItem(); },
+      addItem: () => this.addItem(),
+      clearDone: () => this.clearDone(),
+
+      goHome: () => this.setState({ view: "home" }),
+      goGrocery: () => { this.setState({ view: "grocery" }); this.loadGroceries(); },
       goList: () => this.setState({ view: "list" }),
       goHistory: () => { this.setState({ view: "history" }); this.loadLog(false); },
       goSettings: () => this.setState({ view: "settings" }),
       backToList: () => this.setState({ view: "list", detailId: null }),
-      listTabBg: tl.bg, listTabColor: tl.color, historyTabBg: th.bg, historyTabColor: th.color,
+      homeTabBg: tho.bg, homeTabColor: tho.color,
+      listTabBg: tl.bg, listTabColor: tl.color,
+      groceryTabBg: tg.bg, groceryTabColor: tg.color,
       settingsTabBg: ts.bg, settingsTabColor: ts.color,
 
       gridLayout: grid,

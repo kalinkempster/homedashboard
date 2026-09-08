@@ -39,6 +39,18 @@ create table if not exists run_log (
   at  timestamptz not null default now()
 );
 
+-- The shared shopping list. An item is either still wanted or already in the
+-- trolley; that is the whole model.
+create table if not exists grocery (
+  id         serial primary key,
+  name       text not null,
+  done       boolean not null default false,
+  added_by   text,
+  done_by    text,
+  created_at timestamptz not null default now(),
+  done_at    timestamptz
+);
+
 create table if not exists subscriptions (
   id         serial primary key,
   who        text not null,

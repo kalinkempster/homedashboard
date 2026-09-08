@@ -14,3 +14,13 @@ create table if not exists run_log (
   day date primary key,
   at  timestamptz not null default now()
 );
+
+create table if not exists grocery (
+  id         serial primary key,
+  name       text not null,
+  done       boolean not null default false,
+  added_by   text,
+  done_by    text,
+  created_at timestamptz not null default now(),
+  done_at    timestamptz
+);
