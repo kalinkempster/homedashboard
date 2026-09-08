@@ -298,8 +298,17 @@ class Component extends DCLogic {
       if (w) this.setState({ who: w });
     } catch (e) {}
     if (typeof Notification !== "undefined") this.setState({ notifState: Notification.permission });
+    this.registerWorker();
     this.boot();
     this.checkPush();
+  }
+
+  // The worker is what caches the app shell, so it has to go on every device —
+  // not just the ones that have opted into alerts. Registering costs nothing and
+  // asks for no permission; enableNotifs still handles the subscription.
+  registerWorker() {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
   }
 
   // Talks to /api when it's there (deployed on Vercel); falls back to
