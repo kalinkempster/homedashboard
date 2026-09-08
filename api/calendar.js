@@ -34,8 +34,45 @@ function person(summary) {
   return m ? { who: m[1], kind: m[2].toLowerCase() } : { who: summary, kind: 'birthday' };
 }
 
+// Reports the shape of each feed without publishing its contents. The personal
+// calendar holds far more than birthdays and this endpoint is unauthenticated,
+// so summaries are reduced to their last few characters — enough to see whether
+// anything ends in "'s birthday", not enough to read the calendar.
+async function describe() {
+  const out = {};
+  for (const [name, url] of Object.entries(FEEDS)) {
+    if (!url) { out[name] = 'not configured'; continue; }
+    try {
+      const text = await feed(url);
+      const blocks = text.split(/BEGIN:VEVENT/i).slice(1);
+      const summaries = [];
+      for (const b of blocks) {
+        const m = b.match(/\nSUMMARY[^:]*:([^\r\n]*)/i);
+        if (m) summaries.push(m[1].trim());
+      }
+      out[name] = {
+        bytes: text.length,
+        events: blocks.length,
+        withRecurrence: (text.match(/\nRRULE/gi) || []).length,
+        endingInBirthday: summaries.filter(s => /birthday$/i.test(s)).length,
+        endingInAnniversary: summaries.filter(s => /anniversary$/i.test(s)).length,
+        containingBirthday: summaries.filter(s => /birthday/i.test(s)).length,
+        tailSamples: summaries.slice(0, 8).map(s => (s.length > 14 ? '…' : '') + s.slice(-14))
+      };
+    } catch (err) {
+      out[name] = 'error: ' + (err.message || 'unknown');
+    }
+  }
+  return out;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
+
+  if ((req.query || {}).debug === '1') {
+    res.setHeader('cache-control', 'no-store');
+    return res.json({ diagnostics: await describe() });
+  }
 
   const today = todayISO();
   const until = addDaysISO(today, WINDOW_DAYS);
