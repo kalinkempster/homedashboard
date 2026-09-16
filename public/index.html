@@ -622,6 +622,10 @@ function daysBetweenISO(a, b) {
   const p = s => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); };
   return Math.round((p(b) - p(a)) / DAY);
 }
+function addDaysISO(iso, n) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
 function whenLabel(todayISO, dateISO, time) {
   const n = daysBetweenISO(todayISO, dateISO);
   const clock = time ? " · " + friendlyTime(time) : "";
@@ -1385,13 +1389,17 @@ class Component extends DCLogic {
       const sw = binSwatch(c);
       return { name: sw.label || c, swatch: sw.swatch, ring: sw.ring, text: sw.text };
     }) : [];
-    const collectionDay = bins
+    // The roster date is the night they go out; the truck comes the morning
+    // after. The headline is the collection day, because that's the deadline
+    // being met — the byline says when to actually carry them down.
+    const collectionDate = bins ? addDaysISO(bins.date, 1) : null;
+    const outNight = bins
       ? new Date(bins.date + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long" })
       : "";
     const binsNote = !bins ? ""
-      : binsTonight ? "Out on the street tonight — collected tomorrow morning."
+      : binsTonight ? "Out on the street tonight."
       : binDays === 1 ? "Out on the street tomorrow night."
-      : "Out on the street " + collectionDay + " night.";
+      : "Out on the street " + outNight + " night.";
 
     // Only worth saying something when a feed is actually misconfigured; a
     // quiet fortnight isn't a problem to report.
@@ -1478,7 +1486,7 @@ class Component extends DCLogic {
 
       hasBins: !!bins,
       binColours: binColours,
-      binsWhen: bins ? (binsTonight ? "Tonight" : whenLabel(calToday, bins.date, null)) : "",
+      binsWhen: bins ? whenLabel(calToday, collectionDate, null) : "",
       binsNote: binsNote,
       binsAccent: binsTonight ? "#e2683a" : "#8d837a",
       binsBg: binsTonight ? "#17120f" : "#131110",
