@@ -170,41 +170,74 @@ export default async function handler(req, res) {
     return res.json({ sent: [], bins: binResult, devices: subs.length, day: today, hour, timezone: TZ });
   }
 
-  // Worst first — that's the order they're worth dealing with.
-  due.sort((a, b) => b.overdueBy - a.overdueBy);
-
   const label = e => e.overdueBy === 0
     ? 'due today'
     : e.overdueBy + ' day' + (e.overdueBy === 1 ? '' : 's') + ' overdue';
 
-  // Long bodies get truncated by the OS, so name a handful and count the rest.
-  const shown = due.slice(0, 5);
-  const rest = due.length - shown.length;
+  const digestFor = items => {
+    // Worst first — that's the order they're worth dealing with.
+    items.sort((a, b) => b.overdueBy - a.overdueBy);
+    // Long bodies get truncated by the OS, so name a handful and count the rest.
+    const shown = items.slice(0, 5);
+    const rest = items.length - shown.length;
+    return items.length === 1
+      ? {
+          title: items[0].task.name,
+          body: label(items[0]).charAt(0).toUpperCase() + label(items[0]).slice(1),
+          taskId: items[0].task.id,
+          tag: 'digest'
+        }
+      : {
+          title: items.length + ' jobs need doing',
+          body: shown.map(e => e.task.name + ' · ' + label(e)).join('\n')
+                + (rest ? '\n+ ' + rest + ' more' : ''),
+          tag: 'digest'
+        };
+  };
 
-  const payload = due.length === 1
-    ? {
-        title: due[0].task.name,
-        body: label(due[0]).charAt(0).toUpperCase() + label(due[0]).slice(1),
-        taskId: due[0].task.id,
-        tag: 'digest'
-      }
-    : {
-        title: due.length + ' jobs need doing',
-        body: shown.map(e => e.task.name + ' · ' + label(e)).join('\n')
-              + (rest ? '\n+ ' + rest + ' more' : ''),
-        tag: 'digest'
-      };
-
-  const results = await pushToAll(subs, payload);
-
+  // A private job goes only to its owner's devices, so each person gets the
+  // household's jobs plus their own and never hears about anyone else's.
+  const shared = due.filter(e => !e.task.owner);
+  const owned = new Map();
   for (const e of due) {
-    await sql`update tasks set last_pinged = ${today}::date where id = ${e.task.id}`;
+    if (!e.task.owner) continue;
+    if (!owned.has(e.task.owner)) owned.set(e.task.owner, []);
+    owned.get(e.task.owner).push(e);
   }
 
+  const devicesFor = new Map();
+  for (const s of subs) {
+    const key = s.who || 'unknown';
+    if (!devicesFor.has(key)) devicesFor.set(key, []);
+    devicesFor.get(key).push(s);
+  }
+
+  // Only stamp a job once it has actually been sent to someone. A private job
+  // whose owner has no registered phone stays unstamped and is retried, rather
+  // than being quietly marked as reminded.
+  const stamped = new Set();
+  const results = [];
+
+  for (const [person, theirDevices] of devicesFor) {
+    const items = shared.concat(owned.get(person) || []);
+    if (!items.length) continue;
+    const payload = digestFor(items);
+    const r = await pushToAll(theirDevices, payload);
+    for (const e of items) stamped.add(e.task.id);
+    results.push({ who: person, notification: payload, devices: r });
+  }
+
+  for (const id of stamped) {
+    await sql`update tasks set last_pinged = ${today}::date where id = ${id}`;
+  }
+
+  const unreachable = due.filter(e => !stamped.has(e.task.id))
+    .map(e => ({ task: e.task.name, owner: e.task.owner, reason: 'no phone registered to that name' }));
+
   res.json({
-    sent: due.map(e => e.task.name),
+    sent: due.filter(e => stamped.has(e.task.id)).map(e => e.task.name),
+    notSent: unreachable,
     bins: binResult,
-    notification: payload,
     devices: subs.length, day: today, hour, timezone: TZ, results
   });
 }

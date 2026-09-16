@@ -49,3 +49,6 @@ create table if not exists bin_log (
   day date primary key,
   at  timestamptz not null default now()
 );
+
+-- A task with an owner belongs to that person alone; null means the household's.
+alter table tasks add column if not exists owner text;

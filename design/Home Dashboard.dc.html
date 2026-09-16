@@ -451,6 +451,10 @@
           <input value="{{ newInterval }}" onChange="{{ setNewInterval }}" inputmode="numeric" placeholder="Every … days" style="flex:1;height:48px;padding:0 13px;border-radius:11px;background:#0e0d0c;border:1px solid #242020;color:#f2ede8;font-size:15px;font-family:'IBM Plex Mono',monospace" />
           <button onClick="{{ addTask }}" style="flex-shrink:0;height:48px;padding:0 19px;border-radius:11px;background:#c2410c;color:#fff;font-size:14.5px;font-weight:600" style-hover="background:#d24e15">Add</button>
         </div>
+        <div style="display:flex;gap:4px;margin-top:9px;padding:4px;background:#0e0d0c;border:1px solid #1b1817;border-radius:11px">
+          <button onClick="{{ setShared }}" style="flex:1;height:36px;border-radius:8px;background:{{ sharedBg }};color:{{ sharedColor }};font-size:13px;font-weight:500" style-hover="color:#f2ede8">Both of us</button>
+          <button onClick="{{ setPrivate }}" style="flex:1;height:36px;border-radius:8px;background:{{ privateBg }};color:{{ privateColor }};font-size:13px;font-weight:500" style-hover="color:#f2ede8">Just {{ who }}</button>
+        </div>
       </div>
 
       <sc-if value="{{ hasArchived }}" hint-placeholder-val="{{ false }}">
@@ -618,7 +622,7 @@ class Component extends DCLogic {
 
   state = {
     view: "home", who: "Kal", detailId: null, laterOpen: false,
-    cal: null, groceries: null, staples: null, newItem: "", regularsOpen: true,
+    cal: null, groceries: null, staples: null, newItem: "", regularsOpen: true, newPrivate: false,
     newName: "", newInterval: "", toast: null, notifState: "default",
     pushState: "off", pushError: "",
     // Server mode keeps the log out of the 60s poll and pages it in on demand;
@@ -633,7 +637,7 @@ class Component extends DCLogic {
   componentDidMount() {
     try {
       const w = localStorage.getItem("homedash.who");
-      if (w) this.setState({ who: w });
+      if (w) { this.viewer = w; this.setState({ who: w }); }
       const l = localStorage.getItem("homedash.layout");
       if (l === "tiles" || l === "rows") this.setState({ layout: l });
     } catch (e) {}
@@ -655,7 +659,7 @@ class Component extends DCLogic {
   // on-device state so the same file works as a standalone prototype.
   async boot() {
     try {
-      const r = await fetch("/api/tasks", { headers: { accept: "application/json" } });
+      const r = await fetch(this.scoped("/api/tasks"), { headers: { accept: "application/json" } });
       if (!r.ok) throw new Error("no api");
       const data = await r.json();
       if (!Array.isArray(data.tasks)) throw new Error("no api");
@@ -714,7 +718,7 @@ class Component extends DCLogic {
   }
   async reload() {
     if (!this.server) return;
-    try { const r = await fetch("/api/tasks"); if (r.ok) this.applyServer(await r.json()); } catch (e) {}
+    try { const r = await fetch(this.scoped("/api/tasks")); if (r.ok) this.applyServer(await r.json()); } catch (e) {}
     this.loadGroceries();
   }
 
@@ -777,7 +781,7 @@ class Component extends DCLogic {
     const cursor = more ? this.logCursor : null;
     this.setState({ logBusy: true });
     try {
-      const r = await fetch("/api/history?limit=60" + (cursor ? "&before=" + encodeURIComponent(cursor) : ""));
+      const r = await fetch(this.scoped("/api/history?limit=60") + (cursor ? "&before=" + encodeURIComponent(cursor) : ""));
       if (!r.ok) throw new Error("no history");
       const d = await r.json();
       this.logCursor = d.nextBefore;
@@ -794,7 +798,7 @@ class Component extends DCLogic {
     if (!this.server) return;
     this.setState({ detailLog: null });
     try {
-      const r = await fetch("/api/history?limit=40&taskId=" + encodeURIComponent(taskId));
+      const r = await fetch(this.scoped("/api/history?limit=40&taskId=" + encodeURIComponent(taskId)));
       if (!r.ok) throw new Error("no history");
       const d = await r.json();
       if (String(this.state.detailId) === String(taskId)) this.setState({ detailLog: d.history || [] });
@@ -998,6 +1002,16 @@ class Component extends DCLogic {
   // The name is captured when the phone registers for alerts, so without this a
   // device kept whichever name was showing that day and every ping was
   // attributed to the wrong person.
+  // Every read of jobs or history carries who's looking, so private jobs are
+  // filtered out on the server rather than hidden on the phone.
+  // `viewer` is set synchronously when the name changes; state may still be
+  // mid-update when a refetch fires, and a stale name here would fetch the
+  // wrong person's jobs.
+  scoped(path) {
+    const who = this.viewer || this.state.who;
+    return path + (path.indexOf("?") >= 0 ? "&" : "?") + "who=" + encodeURIComponent(who);
+  }
+
   async renameDevice(who) {
     if (!this.server) return;
     try {
@@ -1341,8 +1355,14 @@ class Component extends DCLogic {
       who: s.who,
       toggleWho: () => {
         const next = s.who === "Kal" ? "Lara" : "Kal";
-        this.setState({ who: next });
+        // Switching person changes which jobs are yours to see, so the lists
+        // are refetched rather than filtered client-side.
+        this.viewer = next;
+        this.setState({ who: next, log: null, detailLog: null });
+        this.logCursor = null;
         this.renameDevice(next);
+        this.reload();
+        if (s.view === "history") this.loadLog(false);
       },
       onServer: !!this.server,
       showNotifBanner: s.pushState !== "on",
@@ -1487,14 +1507,22 @@ class Component extends DCLogic {
       })),
       hasArchived: s.tasks.some(t => t.archived),
       newName: s.newName, newInterval: s.newInterval,
+      setShared: () => this.setState({ newPrivate: false }),
+      setPrivate: () => this.setState({ newPrivate: true }),
+      sharedBg: s.newPrivate ? "transparent" : "#221e1c",
+      sharedColor: s.newPrivate ? "#7d746c" : "#f2ede8",
+      privateBg: s.newPrivate ? "#221e1c" : "transparent",
+      privateColor: s.newPrivate ? "#f2ede8" : "#7d746c",
       setNewName: e => this.setState({ newName: e.target.value }),
       setNewInterval: e => this.setState({ newInterval: e.target.value }),
       addTask: () => {
         const name = s.newName.trim(); const iv = parseInt(s.newInterval, 10);
         if (!name || !iv || iv < 1) return;
         if (this.server) {
-          this.setState({ newName: "", newInterval: "" });
-          this.send("/tasks", { name: name, interval_days: iv }).then(() => this.reload());
+          const owner = s.newPrivate ? s.who : null;
+          this.setState({ newName: "", newInterval: "", newPrivate: false });
+          this.send("/tasks", { name: name, interval_days: iv, owner: owner })
+            .then(() => this.reload());
           return;
         }
         this.setState(st => ({

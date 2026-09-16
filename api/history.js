@@ -16,11 +16,16 @@ export default async function handler(req, res) {
   const before = q.before ? new Date(q.before) : null;
   if (before && isNaN(before)) return res.status(400).json({ error: 'before must be a timestamp' });
 
+  // Private jobs stay out of the log too — history is part of the dashboard,
+  // so leaving someone's medication visible here would defeat hiding the task.
+  const who = q.who || null;
+
   // One row past the page size tells us whether there's more without a count(*).
   const rows = await sql`
     select h.id, h.task_id, h.at, h.by_who, h.kind, t.name
     from history h join tasks t on t.id = h.task_id
-    where (${taskId}::int is null or h.task_id = ${taskId})
+    where (t.owner is null or t.owner = ${who})
+      and (${taskId}::int is null or h.task_id = ${taskId})
       and (${before ? before.toISOString() : null}::timestamptz is null
            or h.at < ${before ? before.toISOString() : null}::timestamptz)
     order by h.at desc

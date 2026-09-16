@@ -1,8 +1,27 @@
 import { sql, daysUntil } from './_db.js';
 
+// A task with no owner belongs to the household; one with an owner belongs to
+// that person alone and is invisible to anyone else. Medication is the reason
+// this exists — you shouldn't be reminded about someone else's, or see it.
+let migrated = false;
+async function ensureColumns() {
+  if (migrated) return;
+  await sql`alter table tasks add column if not exists owner text`;
+  migrated = true;
+}
+
+const mine = who => who ? sql`(owner is null or owner = ${who})` : sql`true`;
+
 export default async function handler(req, res) {
+  await ensureColumns();
+  const who = (req.query || {}).who || null;
+
   if (req.method === 'GET') {
-    const tasks = await sql`select * from tasks order by id`;
+    // Without a `who` the caller gets the household's own jobs only, never
+    // someone's private ones — an unscoped read must not be a way around this.
+    const tasks = who
+      ? await sql`select * from tasks where owner is null or owner = ${who} order by id`
+      : await sql`select * from tasks where owner is null order by id`;
     const withDue = tasks.map(t => ({ ...t, days_until: daysUntil(t) }));
 
     // History moved to /api/history so the 60s poll stays small. `?history=1`
@@ -15,11 +34,11 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { name, interval_days } = req.body;
+    const { name, interval_days, owner } = req.body;
     if (!name || !interval_days) return res.status(400).json({ error: 'name and interval_days required' });
     const [row] = await sql`
-      insert into tasks (name, interval_days, last_done)
-      values (${name}, ${interval_days}, current_date) returning *`;
+      insert into tasks (name, interval_days, last_done, owner)
+      values (${name}, ${interval_days}, current_date, ${owner || null}) returning *`;
     return res.json(row);
   }
 
