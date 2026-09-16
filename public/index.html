@@ -86,6 +86,23 @@
   <symbol id="ic-task" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
     <rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 12.2l2.6 2.6 4.4-5"/>
   </symbol>
+  <symbol id="ic-pill" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="rotate(-45 12 12)">
+      <rect x="3.4" y="8.75" width="17.2" height="6.5" rx="3.25"/>
+      <path d="M12 8.75v6.5"/>
+    </g>
+  </symbol>
+  <symbol id="ic-pet-meds" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="10.2" cy="16.6" rx="3.9" ry="3.2"/>
+    <ellipse cx="5.2" cy="12.2" rx="1.5" ry="2"/><ellipse cx="15.2" cy="12.4" rx="1.5" ry="2"/>
+    <ellipse cx="8.2" cy="8.9" rx="1.5" ry="2.05"/><ellipse cx="12.6" cy="8.7" rx="1.5" ry="2.05"/>
+    <path d="M18.8 3.6v4.2"/><path d="M16.7 5.7h4.2"/>
+  </symbol>
+  <symbol id="ic-board" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 3.2h10a2 2 0 0 1 2 2v12.6a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V5.2a2 2 0 0 1 2-2z"/>
+    <circle cx="12" cy="6.4" r="1.1"/>
+    <path d="M9.2 10.6v7"/><path d="M14.8 10.6v7"/>
+  </symbol>
   <symbol id="ic-cake" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
     <path d="M3.5 20.5h17"/>
     <path d="M4.5 20.5v-5.2a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v5.2"/>
@@ -531,18 +548,23 @@ function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
 // glyph from its name. Order matters — "Wash dog bed" is a bed, not a wash, and
 // "Change bed sheets" is neither. Anything unrecognised gets the generic mark.
 const ICONS = [
-  [/dog bed|pet bed|cat bed/i, "ic-dogbed"],
-  [/vacuum|hoover/i,           "ic-vacuum"],
-  [/mop/i,                     "ic-mop"],
-  [/sheet|linen|duvet/i,       "ic-bed"],
-  [/towel/i,                   "ic-towel"],
-  [/poo|poop|litter/i,         "ic-paw"],
-  [/groc|shop|market/i,        "ic-basket"],
-  [/bin|rubbish|trash|recycl/i,"ic-bin"],
-  [/toilet|loo|bathroom/i,     "ic-toilet"],
-  [/laundry|washing|clothes/i, "ic-washer"],
-  [/plant|garden|water|lawn/i, "ic-plant"],
-  [/dog|cat|pet/i,             "ic-paw"]
+  [/dog bed|pet bed|cat bed/i,      "ic-dogbed"],
+  // The pet's tablet before the general one, or "Deworming tablet" would read
+  // as somebody's medication. Deliberately no /vet/ here — it matches "duvet".
+  [/deworm|worming|wormer|flea/i,   "ic-pet-meds"],
+  [/medicat|tablet|pill|vitamin/i,  "ic-pill"],
+  [/vacuum|hoover/i,                "ic-vacuum"],
+  [/mop/i,                          "ic-mop"],
+  [/sheet|linen|duvet/i,            "ic-bed"],
+  [/towel/i,                        "ic-towel"],
+  [/poo|poop|litter/i,              "ic-paw"],
+  [/groc|shop|market/i,             "ic-basket"],
+  [/bin|rubbish|trash|recycl/i,     "ic-bin"],
+  [/toilet|loo|bathroom/i,          "ic-toilet"],
+  [/laundry|washing|clothes/i,      "ic-washer"],
+  [/board|chopping|butcher/i,       "ic-board"],
+  [/plant|garden|water|lawn/i,      "ic-plant"],
+  [/dog|cat|pet/i,                  "ic-paw"]
 ];
 // Returns the bare id; the template supplies the "#" so the pre-hydration
 // placeholder reads as a fragment and never fires off a request for it.
