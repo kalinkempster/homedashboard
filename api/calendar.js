@@ -1,5 +1,6 @@
 import { occurrences, todayISO, addDaysISO } from './_ics.js';
 import { sql } from './_db.js';
+import { binNightOnOrAfter } from './_bins.js';
 
 // The family calendar comes from a secret iCal feed, read server-side so the
 // URL never reaches a phone. Birthdays do not: Google builds those from the
@@ -85,23 +86,31 @@ export default async function handler(req, res) {
 
   const today = todayISO();
   const until = addDaysISO(today, WINDOW_DAYS);
-  const out = { today, birthdays: [], events: [], bins: null, sources: {} };
+  // The bin roster comes from the cycle, not the feed, so it survives the
+  // calendar entries being retired — and still works if the feed is down.
+  const out = {
+    today, birthdays: [], events: [],
+    bins: { ...binNightOnOrAfter(today), source: 'schedule' },
+    sources: {}
+  };
 
   const jobs = Object.entries(FEEDS).map(async ([name, url]) => {
     if (!url) { out.sources[name] = 'not configured'; return; }
     try {
       const items = occurrences(await feed(url), today, until);
 
-      // The weekly "Bins: Red, Green, Yellow" entry earns its own banner, so
-      // it comes out of the general list rather than appearing in both places.
-      const binEntries = items.filter(e => BIN_RE.test(e.summary));
-      const next = binEntries[0];
-      if (next) {
+      // The roster is a fixed cycle (see _bins.js), so the calendar isn't needed
+      // to know which bins go out. A "Bins: ..." entry on the night we're
+      // already showing still wins, though — that's the override for the weeks
+      // a public holiday shifts collection.
+      const override = items.find(e => BIN_RE.test(e.summary) && e.date === out.bins.date);
+      if (override) {
         out.bins = {
-          date: next.date,
-          time: next.time,
-          colours: next.summary.replace(BIN_RE, '').split(/[,/]/)
-            .map(c => c.trim()).filter(Boolean)
+          date: override.date,
+          time: override.time || out.bins.time,
+          colours: override.summary.replace(BIN_RE, '').split(/[,/]/)
+            .map(c => c.trim()).filter(Boolean),
+          source: 'calendar'
         };
       }
 
