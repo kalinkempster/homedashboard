@@ -27,6 +27,19 @@ const CYCLE = [
 
 const DAY = 86400000;
 
+// The roster names lids by colour; people think about them by what goes in.
+// The reminder says both, because the colour is what you see at the kerb.
+const LIDS = {
+  red: 'General', green: 'Green Waste', yellow: 'Recycling',
+  purple: 'Glass', blue: 'Paper'
+};
+
+export function binLabel(colour) {
+  const key = String(colour).trim().toLowerCase();
+  for (const k of Object.keys(LIDS)) if (key.indexOf(k) >= 0) return LIDS[k];
+  return colour;
+}
+
 function toMs(iso) {
   const [y, m, d] = iso.split('-').map(Number);
   return Date.UTC(y, m - 1, d);

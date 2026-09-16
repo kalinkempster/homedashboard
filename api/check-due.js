@@ -1,5 +1,6 @@
 import webpush from 'web-push';
 import { sql, TZ, daysUntil, daysSince, todayKey, localHour } from './_db.js';
+import { binLabel } from './_bins.js';
 
 webpush.setVapidDetails(
   'mailto:' + (process.env.CONTACT_EMAIL || 'nobody@example.com'),
@@ -136,7 +137,9 @@ export default async function handler(req, res) {
         const binHour = bins.time ? parseInt(bins.time.slice(0, 2), 10) : BIN_HOUR;
         const ready = hour >= binHour && hour < QUIET_START;
         if ((ready || force) && (force || await claimBinsToday(today))) {
-          const list = bins.colours.join(', ');
+          // Named by what goes in them, with the lid colour alongside — the
+          // colour is what you actually look for at the kerb.
+          const list = bins.colours.map(c => binLabel(c) + ' (' + c.toLowerCase() + ')').join(', ');
           const results = await pushToAll(subs, {
             title: 'Bins out tonight',
             body: list + ' — out on the street for the morning.',
