@@ -13,7 +13,8 @@ create table if not exists tasks (
   archived     boolean not null default false,
   snoozed_to   date,
   last_pinged  date,
-  owner        text
+  owner        text,
+  anchor_date  date
 );
 
 -- Each row carries the task state it replaced, so an undo restores exactly what

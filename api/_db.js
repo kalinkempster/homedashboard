@@ -45,8 +45,30 @@ function msToKey(ms) {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
+// Two ways a job can come round.
+//
+// 'interval' — the clock restarts when you actually do it. Vacuum three days
+// late and the next one is a week from then. Right for jobs where what matters
+// is how long it's been.
+//
+// 'cycle' — a fixed series of dates from an anchor, every interval_days apart,
+// which doing it late does not shift. Right for jobs pinned to the outside
+// world: the Hello Fresh order window is every fourth Monday whether or not you
+// got to the last one on time.
 export function dueKey(task) {
   const last = dayKey(task.last_done);
+
+  if (task.mode === 'cycle' && task.anchor_date) {
+    const anchor = keyToMs(dayKey(task.anchor_date));
+    const step = task.interval_days * DAY;
+    // Never done: the slot that has most recently come round, so it reads as
+    // due or overdue rather than jumping to a date in the future.
+    const n = last
+      ? Math.floor((keyToMs(last) - anchor) / step) + 1
+      : Math.floor((keyToMs(todayKey()) - anchor) / step);
+    return msToKey(anchor + Math.max(n, 0) * step);
+  }
+
   if (!last) return todayKey();
   return msToKey(keyToMs(last) + task.interval_days * DAY);
 }

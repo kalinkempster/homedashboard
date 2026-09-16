@@ -7,6 +7,7 @@ let migrated = false;
 async function ensureColumns() {
   if (migrated) return;
   await sql`alter table tasks add column if not exists owner text`;
+  await sql`alter table tasks add column if not exists anchor_date date`;
   migrated = true;
 }
 
@@ -34,11 +35,23 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { name, interval_days, owner } = req.body;
+    const { name, interval_days, owner, mode, anchor_date, last_done } = req.body;
     if (!name || !interval_days) return res.status(400).json({ error: 'name and interval_days required' });
+
+    // A cycle needs an anchor to count its dates from; without one it would
+    // have no series, so fall back to the interval behaviour rather than
+    // storing a mode that can't be honoured.
+    const cycle = mode === 'cycle' && !!anchor_date;
+
     const [row] = await sql`
-      insert into tasks (name, interval_days, last_done, owner)
-      values (${name}, ${interval_days}, current_date, ${owner || null}) returning *`;
+      insert into tasks (name, interval_days, last_done, owner, mode, anchor_date)
+      values (
+        ${name}, ${interval_days},
+        coalesce(${last_done ?? null}::date, current_date),
+        ${owner || null},
+        ${cycle ? 'cycle' : 'interval'},
+        ${cycle ? anchor_date : null}::date
+      ) returning *`;
     return res.json(row);
   }
 

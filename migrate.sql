@@ -52,3 +52,7 @@ create table if not exists bin_log (
 
 -- A task with an owner belongs to that person alone; null means the household's.
 alter table tasks add column if not exists owner text;
+
+-- A 'cycle' job repeats on a fixed series of dates counted from anchor_date,
+-- every interval_days apart, which doing it late does not shift.
+alter table tasks add column if not exists anchor_date date;
