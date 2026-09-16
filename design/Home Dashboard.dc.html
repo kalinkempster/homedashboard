@@ -469,14 +469,30 @@
       <div style="margin-top:24px;padding:16px;border-radius:14px;background:#131110;border:1px solid #1e1b19">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#968c83;margin-bottom:11px">Add a job</div>
         <input value="{{ newName }}" onChange="{{ setNewName }}" placeholder="What is it?" style="width:100%;height:48px;padding:0 13px;border-radius:11px;background:#0e0d0c;border:1px solid #242020;color:#f2ede8;font-size:15px;margin-bottom:9px" />
-        <div style="display:flex;gap:9px">
-          <input value="{{ newInterval }}" onChange="{{ setNewInterval }}" inputmode="numeric" placeholder="Every … days" style="flex:1;height:48px;padding:0 13px;border-radius:11px;background:#0e0d0c;border:1px solid #242020;color:#f2ede8;font-size:15px;font-family:'IBM Plex Mono',monospace" />
-          <button onClick="{{ addTask }}" style="flex-shrink:0;height:48px;padding:0 19px;border-radius:11px;background:#c2410c;color:#fff;font-size:14.5px;font-weight:600" style-hover="background:#d24e15">Add</button>
+        <div style="display:flex;gap:4px;padding:4px;background:#0e0d0c;border:1px solid #1b1817;border-radius:11px">
+          <button onClick="{{ setModeInterval }}" style="flex:1;height:36px;border-radius:8px;background:{{ intervalBg }};color:{{ intervalColor }};font-size:13px;font-weight:500" style-hover="color:#f2ede8">Days since last</button>
+          <button onClick="{{ setModeCycle }}" style="flex:1;height:36px;border-radius:8px;background:{{ cycleBg }};color:{{ cycleColor }};font-size:13px;font-weight:500" style-hover="color:#f2ede8">On a schedule</button>
         </div>
+
+        <sc-if value="{{ isNewInterval }}" hint-placeholder-val="{{ true }}">
+          <input value="{{ newInterval }}" onChange="{{ setNewInterval }}" inputmode="numeric" placeholder="Every … days" style="width:100%;height:48px;padding:0 13px;border-radius:11px;background:#0e0d0c;border:1px solid #242020;color:#f2ede8;font-size:15px;font-family:'IBM Plex Mono',monospace;margin-top:9px" />
+        </sc-if>
+
+        <sc-if value="{{ isNewCycle }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:9px;margin-top:9px">
+            <input value="{{ newWeeks }}" onChange="{{ setNewWeeks }}" inputmode="numeric" placeholder="Every … weeks" style="flex:1;min-width:0;height:48px;padding:0 13px;border-radius:11px;background:#0e0d0c;border:1px solid #242020;color:#f2ede8;font-size:15px;font-family:'IBM Plex Mono',monospace" />
+            <input type="date" value="{{ newStart }}" onChange="{{ setNewStart }}" style="flex:1;min-width:0;height:48px;padding:0 13px;border-radius:11px;background:#0e0d0c;border:1px solid #242020;color:#f2ede8;font-size:15px;font-family:'IBM Plex Mono',monospace" />
+          </div>
+          <div style="margin-top:7px;font-size:12.5px;color:#7d746c;line-height:1.5">{{ cycleHint }}</div>
+        </sc-if>
+
         <div style="display:flex;gap:4px;margin-top:9px;padding:4px;background:#0e0d0c;border:1px solid #1b1817;border-radius:11px">
           <button onClick="{{ setShared }}" style="flex:1;height:36px;border-radius:8px;background:{{ sharedBg }};color:{{ sharedColor }};font-size:13px;font-weight:500" style-hover="color:#f2ede8">Both of us</button>
           <button onClick="{{ setPrivate }}" style="flex:1;height:36px;border-radius:8px;background:{{ privateBg }};color:{{ privateColor }};font-size:13px;font-weight:500" style-hover="color:#f2ede8">Just {{ who }}</button>
         </div>
+
+        <button onClick="{{ addTask }}" style="width:100%;height:48px;margin-top:10px;border-radius:11px;background:#c2410c;color:#fff;font-size:14.5px;font-weight:600" style-hover="background:#d24e15">Add</button>
+        <div style="margin-top:9px;font-size:12.5px;color:#7d746c;line-height:1.55">Days since last: the clock restarts when you tick it. On a schedule: fixed dates that don't shift if you're late.</div>
       </div>
 
       <sc-if value="{{ hasArchived }}" hint-placeholder-val="{{ false }}">
@@ -656,6 +672,25 @@ function cadenceLabel(t) {
   return everyLabel(t.interval);
 }
 
+// Reads the half-filled form back as dates. Picking "every 4 weeks from the
+// 14th" should show you it means Mondays, and the next few, before you commit.
+function cycleHint(weeks, start) {
+  const w = parseInt(weeks, 10);
+  if (!start) return "Pick the day it repeats from.";
+  if (!w || w < 1) return "How many weeks between each one?";
+  const parts = start.split("-").map(Number);
+  const first = new Date(parts[0], parts[1] - 1, parts[2]);
+  if (isNaN(first)) return "Pick the day it repeats from.";
+  const dates = [];
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(first.getTime());
+    d.setDate(d.getDate() + i * w * 7);
+    dates.push(d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }));
+  }
+  return WEEKDAYS[first.getDay()] + ", every " + (w === 1 ? "week" : w + " weeks")
+    + " — " + dates.join(", ") + "…";
+}
+
 function everyLabel(n) {
   if (n % 7 === 0 && n >= 7 && n < 60) { const w = n / 7; return w === 1 ? "week" : w + " wks"; }
   if (n >= 60) { const m = Math.round(n / 30); return m + " mth" + (m === 1 ? "" : "s"); }
@@ -668,7 +703,7 @@ class Component extends DCLogic {
 
   state = {
     view: "home", who: "Kal", detailId: null, laterOpen: false,
-    cal: null, groceries: null, staples: null, newItem: "", regularsOpen: true, newPrivate: false,
+    cal: null, groceries: null, staples: null, newItem: "", regularsOpen: true, newPrivate: false, newMode: "interval", newWeeks: "", newStart: "",
     newName: "", newInterval: "", toast: null, notifState: "default",
     pushState: "off", pushError: "",
     // Server mode keeps the log out of the 60s poll and pages it in on demand;
@@ -1566,6 +1601,20 @@ class Component extends DCLogic {
       })),
       hasArchived: s.tasks.some(t => t.archived),
       newName: s.newName, newInterval: s.newInterval,
+      newWeeks: s.newWeeks, newStart: s.newStart,
+      setNewWeeks: e => this.setState({ newWeeks: e.target.value }),
+      setNewStart: e => this.setState({ newStart: e.target.value }),
+      isNewInterval: s.newMode !== "cycle",
+      isNewCycle: s.newMode === "cycle",
+      setModeInterval: () => this.setState({ newMode: "interval" }),
+      setModeCycle: () => this.setState({ newMode: "cycle" }),
+      intervalBg: s.newMode === "cycle" ? "transparent" : "#221e1c",
+      intervalColor: s.newMode === "cycle" ? "#7d746c" : "#f2ede8",
+      cycleBg: s.newMode === "cycle" ? "#221e1c" : "transparent",
+      cycleColor: s.newMode === "cycle" ? "#f2ede8" : "#7d746c",
+      // Says back what was just entered, so "every 4 weeks from the 14th"
+      // is confirmed as Mondays before the job is created rather than after.
+      cycleHint: cycleHint(s.newWeeks, s.newStart),
       setShared: () => this.setState({ newPrivate: false }),
       setPrivate: () => this.setState({ newPrivate: true }),
       sharedBg: s.newPrivate ? "transparent" : "#221e1c",
@@ -1575,13 +1624,19 @@ class Component extends DCLogic {
       setNewName: e => this.setState({ newName: e.target.value }),
       setNewInterval: e => this.setState({ newInterval: e.target.value }),
       addTask: () => {
-        const name = s.newName.trim(); const iv = parseInt(s.newInterval, 10);
-        if (!name || !iv || iv < 1) return;
+        const name = s.newName.trim();
+        const cycle = s.newMode === "cycle";
+        const iv = cycle ? parseInt(s.newWeeks, 10) * 7 : parseInt(s.newInterval, 10);
+        if (!name) return this.showToast("Give it a name first", null);
+        if (!iv || iv < 1) return this.showToast(cycle ? "How many weeks between each one?" : "How many days between each one?", null);
+        if (cycle && !s.newStart) return this.showToast("Pick the day it repeats from", null);
+
         if (this.server) {
           const owner = s.newPrivate ? s.who : null;
-          this.setState({ newName: "", newInterval: "", newPrivate: false });
-          this.send("/tasks", { name: name, interval_days: iv, owner: owner })
-            .then(() => this.reload());
+          const body = { name: name, interval_days: iv, owner: owner };
+          if (cycle) { body.mode = "cycle"; body.anchor_date = s.newStart; body.last_done = null; }
+          this.setState({ newName: "", newInterval: "", newWeeks: "", newStart: "", newPrivate: false });
+          this.send("/tasks", body).then(() => this.reload());
           return;
         }
         this.setState(st => ({

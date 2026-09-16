@@ -1,4 +1,4 @@
-import { sql, daysUntil } from './_db.js';
+import { sql, daysUntil, todayKey } from './_db.js';
 
 // A task with no owner belongs to the household; one with an owner belongs to
 // that person alone and is invisible to anyone else. Medication is the reason
@@ -43,14 +43,16 @@ export default async function handler(req, res) {
     // storing a mode that can't be honoured.
     const cycle = mode === 'cycle' && !!anchor_date;
 
+    // An interval job starts its clock the day you add it. A cycle job takes
+    // its dates from the anchor, so it must start with no last_done at all —
+    // defaulting that to today would push the first one a whole period away.
+    const started = last_done ?? (cycle ? null : todayKey());
+
     const [row] = await sql`
       insert into tasks (name, interval_days, last_done, owner, mode, anchor_date)
       values (
-        ${name}, ${interval_days},
-        coalesce(${last_done ?? null}::date, current_date),
-        ${owner || null},
-        ${cycle ? 'cycle' : 'interval'},
-        ${cycle ? anchor_date : null}::date
+        ${name}, ${interval_days}, ${started}::date, ${owner || null},
+        ${cycle ? 'cycle' : 'interval'}, ${cycle ? anchor_date : null}::date
       ) returning *`;
     return res.json(row);
   }
