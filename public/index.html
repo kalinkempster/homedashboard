@@ -144,6 +144,26 @@
         </div>
       </sc-if>
 
+      <sc-if value="{{ hasBins }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:12px;padding:15px 16px;border-radius:16px;background:{{ binsBg }};border:1px solid {{ binsBorder }}">
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+            <svg viewBox="0 0 24 24" style="width:19px;height:19px;color:{{ binsAccent }}"><use href="#ic-bin"/></svg>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:{{ binsAccent }}">Bins</div>
+            <div style="flex:1"></div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:{{ binsAccent }}">{{ binsWhen }}</div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+            <sc-for list="{{ binColours }}" as="bin" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:7px;height:34px;padding:0 12px 0 9px;border-radius:999px;background:#171514;border:1px solid #262220">
+                <span style="width:13px;height:13px;border-radius:50%;background:{{ bin.swatch }};border:1px solid {{ bin.ring }}"></span>
+                <span style="font-size:13.5px;font-weight:500;color:#e8ded6">{{ bin.name }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size:13px;color:#8d837a;line-height:1.5">{{ binsNote }}</div>
+        </div>
+      </sc-if>
+
       <sc-if value="{{ hasEvents }}" hint-placeholder-val="{{ true }}">
         <div style="margin-top:12px;padding:15px 16px;border-radius:16px;background:#131110;border:1px solid #1e1b19">
           <div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">
@@ -525,6 +545,21 @@ const ICONS = [
 function iconFor(name) {
   for (const [re, id] of ICONS) if (re.test(name)) return id;
   return "ic-task";
+}
+
+// Australian kerbside lids. The calendar entry names the colours, so the swatch
+// just has to make them scannable at a glance from across the kitchen.
+const BIN_SWATCH = {
+  red:    { swatch: "#c0392b", ring: "#e05a48" },
+  green:  { swatch: "#4b8b3b", ring: "#6fb35c" },
+  yellow: { swatch: "#d9a441", ring: "#f0c064" },
+  purple: { swatch: "#7d5ba6", ring: "#a07fc9" },
+  blue:   { swatch: "#3b6fa8", ring: "#5b92cc" }
+};
+function binSwatch(name) {
+  const key = name.trim().toLowerCase();
+  for (const k of Object.keys(BIN_SWATCH)) if (key.indexOf(k) >= 0) return BIN_SWATCH[k];
+  return { swatch: "#6d645c", ring: "#8d837a" };
 }
 
 // Calendar dates arrive as YYYY-MM-DD already resolved to the household's day,
@@ -1229,6 +1264,24 @@ class Component extends DCLogic {
       };
     });
 
+    // The bins entry sits on a Sunday evening and the truck comes Monday, so
+    // the banner talks about tonight and tomorrow rather than naming weekdays
+    // you'd have to translate.
+    const bins = cal && cal.bins ? cal.bins : null;
+    const binDays = bins ? daysBetweenISO(calToday, bins.date) : null;
+    const binsTonight = binDays === 0;
+    const binColours = bins ? bins.colours.map(c => {
+      const sw = binSwatch(c);
+      return { name: c, swatch: sw.swatch, ring: sw.ring };
+    }) : [];
+    const collectionDay = bins
+      ? new Date(bins.date + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long" })
+      : "";
+    const binsNote = !bins ? ""
+      : binsTonight ? "Out on the street tonight — collected tomorrow morning."
+      : binDays === 1 ? "Out on the street tomorrow night."
+      : "Out on the street " + collectionDay + " night.";
+
     // Only worth saying something when a feed is actually misconfigured; a
     // quiet fortnight isn't a problem to report.
     const src = cal && cal.sources ? cal.sources : {};
@@ -1305,6 +1358,14 @@ class Component extends DCLogic {
       isHome: s.view === "home", isGrocery: s.view === "grocery",
       isList: s.view === "list", isDetail: s.view === "detail" && !!d,
       isHistory: s.view === "history", isSettings: s.view === "settings",
+
+      hasBins: !!bins,
+      binColours: binColours,
+      binsWhen: bins ? (binsTonight ? "Tonight" : whenLabel(calToday, bins.date, null)) : "",
+      binsNote: binsNote,
+      binsAccent: binsTonight ? "#e2683a" : "#8d837a",
+      binsBg: binsTonight ? "#17120f" : "#131110",
+      binsBorder: binsTonight ? "#2b1f18" : "#1e1b19",
 
       hasBirthdays: birthdays.length > 0,
       birthdays: birthdays,

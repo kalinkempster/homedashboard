@@ -94,3 +94,9 @@ create table if not exists staples (
   rank     integer not null default 100,
   category text
 );
+
+-- Evening bin reminders claim their own day, separate from the morning digest.
+create table if not exists bin_log (
+  day date primary key,
+  at  timestamptz not null default now()
+);

@@ -42,3 +42,10 @@ create table if not exists staples (
 );
 
 alter table staples add column if not exists category text;
+
+-- Evening bin reminders claim their own day, so the morning chore digest can't
+-- silence them (or the reverse).
+create table if not exists bin_log (
+  day date primary key,
+  at  timestamptz not null default now()
+);

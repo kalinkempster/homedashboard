@@ -7,7 +7,8 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY
 );
 
-const SEND_HOUR = 7;   // 7am, household time
+const SEND_HOUR = 7;    // 7am, household time
+const BIN_HOUR = 18;    // fallback if the calendar entry carries no time
 const QUIET_START = 22; // never send past 10pm, even if a trigger arrives late
 
 // Sends one payload to every registered device, reporting what happened to
@@ -56,6 +57,33 @@ async function claimToday(day) {
   return rows.length > 0;
 }
 
+// The bin reminder goes out in the evening and the chore digest in the morning,
+// so they need separate claims — a shared one would let whichever ran first
+// silence the other for the rest of the day. Its own table rather than a
+// composite key, so the existing run_log never has to be rebuilt.
+async function claimBinsToday(day) {
+  await sql`create table if not exists bin_log (
+    day date primary key,
+    at  timestamptz not null default now()
+  )`;
+  const rows = await sql`
+    insert into bin_log (day) values (${day}::date)
+    on conflict (day) do nothing returning day`;
+  return rows.length > 0;
+}
+
+// Reads the bins entry straight off the calendar endpoint, so the colours and
+// the night they go out have exactly one source: the family calendar.
+async function binsDueToday(today, req) {
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  const r = await fetch(proto + '://' + host + '/api/calendar');
+  if (!r.ok) throw new Error('calendar responded ' + r.status);
+  const d = await r.json();
+  if (!d.bins || d.bins.date !== today) return null;
+  return d.bins;
+}
+
 // Triggered hourly (GitHub Actions) with Vercel's daily cron as a fallback, and
 // sends on the first trigger at or after 7am household time. Gating on the hour
 // here rather than on the cron expression is what keeps delivery at 7am through
@@ -80,13 +108,42 @@ export default async function handler(req, res) {
 
   const hour = localHour();
   const today = todayKey();
+  let binResult = { sent: false, reason: 'not checked' };
+
+  // Bins first: it's an evening job on whatever night the calendar names, so it
+  // has nothing to do with the morning digest below and must be checked even
+  // once that has already claimed the day.
+  if (q.bins !== '0') {
+    try {
+      const bins = await binsDueToday(today, req);
+      if (bins) {
+        const binHour = bins.time ? parseInt(bins.time.slice(0, 2), 10) : BIN_HOUR;
+        const ready = hour >= binHour && hour < QUIET_START;
+        if ((ready || force) && (force || await claimBinsToday(today))) {
+          const list = bins.colours.join(', ');
+          const results = await pushToAll(subs, {
+            title: 'Bins out tonight',
+            body: list + ' — out on the street for the morning.',
+            tag: 'bins'
+          });
+          binResult = { sent: true, colours: bins.colours, results };
+        } else {
+          binResult = { sent: false, reason: ready ? 'already sent today' : 'before ' + binHour + ':00', colours: bins.colours };
+        }
+      } else {
+        binResult = { sent: false, reason: 'no bins tonight' };
+      }
+    } catch (err) {
+      binResult = { sent: false, reason: 'error: ' + (err.message || 'unknown') };
+    }
+  }
 
   if (!force) {
     if (hour < SEND_HOUR || hour >= QUIET_START) {
-      return res.json({ skipped: 'outside the send window', hour, sendHour: SEND_HOUR, timezone: TZ });
+      return res.json({ skipped: 'outside the send window', bins: binResult, hour, sendHour: SEND_HOUR, timezone: TZ });
     }
     if (!(await claimToday(today))) {
-      return res.json({ skipped: 'already sent today', day: today, hour, timezone: TZ });
+      return res.json({ skipped: 'already sent today', bins: binResult, day: today, hour, timezone: TZ });
     }
   }
 
@@ -110,7 +167,7 @@ export default async function handler(req, res) {
   }
 
   if (!due.length) {
-    return res.json({ sent: [], devices: subs.length, day: today, hour, timezone: TZ });
+    return res.json({ sent: [], bins: binResult, devices: subs.length, day: today, hour, timezone: TZ });
   }
 
   // Worst first — that's the order they're worth dealing with.
@@ -146,6 +203,7 @@ export default async function handler(req, res) {
 
   res.json({
     sent: due.map(e => e.task.name),
+    bins: binResult,
     notification: payload,
     devices: subs.length, day: today, hour, timezone: TZ, results
   });

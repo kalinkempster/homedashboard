@@ -9,6 +9,10 @@ const FEEDS = {
   family: process.env.FAMILY_ICS_URL
 };
 
+// "Bins: Red, Green, Yellow" — the leading label is stripped and what's left
+// is the list of lids going out.
+const BIN_RE = /^\s*bins?\s*[:\-]\s*/i;
+
 const WINDOW_DAYS = 45;
 const CACHE_MS = 15 * 60 * 1000;
 const cache = new Map();
@@ -81,12 +85,27 @@ export default async function handler(req, res) {
 
   const today = todayISO();
   const until = addDaysISO(today, WINDOW_DAYS);
-  const out = { today, birthdays: [], events: [], sources: {} };
+  const out = { today, birthdays: [], events: [], bins: null, sources: {} };
 
   const jobs = Object.entries(FEEDS).map(async ([name, url]) => {
     if (!url) { out.sources[name] = 'not configured'; return; }
     try {
-      out.events = occurrences(await feed(url), today, until).map(e => ({
+      const items = occurrences(await feed(url), today, until);
+
+      // The weekly "Bins: Red, Green, Yellow" entry earns its own banner, so
+      // it comes out of the general list rather than appearing in both places.
+      const binEntries = items.filter(e => BIN_RE.test(e.summary));
+      const next = binEntries[0];
+      if (next) {
+        out.bins = {
+          date: next.date,
+          time: next.time,
+          colours: next.summary.replace(BIN_RE, '').split(/[,/]/)
+            .map(c => c.trim()).filter(Boolean)
+        };
+      }
+
+      out.events = items.filter(e => !BIN_RE.test(e.summary)).map(e => ({
         summary: e.summary, date: e.date, time: e.time, allDay: e.allDay
       }));
       out.sources[name] = 'ok';
