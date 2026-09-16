@@ -98,6 +98,22 @@ export default async function handler(req, res) {
   const force = q.force === '1';
   const subs = await sql`select * from subscriptions order by id`;
 
+  // Private reminders are routed by the name a phone registered under, so it
+  // has to be possible to check that mapping without firing a notification to
+  // find out. Names and counts only — never an endpoint or key.
+  if (q.devices === '1') {
+    const byName = {};
+    for (const s of subs) byName[s.who || 'unknown'] = (byName[s.who || 'unknown'] || 0) + 1;
+    const owners = await sql`
+      select owner, count(*)::int as jobs from tasks
+      where archived = false and owner is not null group by owner`;
+    return res.json({
+      phonesByName: byName,
+      privateJobsByOwner: Object.fromEntries(owners.map(o => [o.owner, o.jobs])),
+      unroutable: owners.filter(o => !byName[o.owner]).map(o => o.owner)
+    });
+  }
+
   if (q.test === '1') {
     const results = await pushToAll(subs, {
       title: 'Home Dashboard',
