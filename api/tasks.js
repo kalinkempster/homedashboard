@@ -73,5 +73,16 @@ export default async function handler(req, res) {
     return res.json(row);
   }
 
+  // Archiving hides a job but keeps its record, which is right for something
+  // you've stopped doing. This is for one that shouldn't have existed — it
+  // takes the history with it, so it isn't the same button as Archive.
+  if (req.method === 'DELETE') {
+    const { id } = req.body || {};
+    if (!id) return res.status(400).json({ error: 'id required' });
+    const [gone] = await sql`delete from tasks where id = ${id} returning id, name`;
+    if (!gone) return res.status(404).json({ error: 'no such task' });
+    return res.json({ deleted: gone });
+  }
+
   res.status(405).end();
 }
