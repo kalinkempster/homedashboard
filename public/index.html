@@ -547,24 +547,27 @@ function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
 // Tiles are named by picture as much as by word, so each job is matched to a
 // glyph from its name. Order matters — "Wash dog bed" is a bed, not a wash, and
 // "Change bed sheets" is neither. Anything unrecognised gets the generic mark.
+// Short patterns match inside longer words, which is how "Medication" ended up
+// with a paw (it contains "cat") and how "Clean floors" would have got a toilet
+// (it contains "loo"). The risky ones are anchored to word boundaries, and the
+// pet's tablet is matched before the general one so a deworming tablet doesn't
+// read as somebody's medication. No /vet/ pattern at all — it matches "duvet".
 const ICONS = [
-  [/dog bed|pet bed|cat bed/i,      "ic-dogbed"],
-  // The pet's tablet before the general one, or "Deworming tablet" would read
-  // as somebody's medication. Deliberately no /vet/ here — it matches "duvet".
-  [/deworm|worming|wormer|flea/i,   "ic-pet-meds"],
-  [/medicat|tablet|pill|vitamin/i,  "ic-pill"],
-  [/vacuum|hoover/i,                "ic-vacuum"],
-  [/mop/i,                          "ic-mop"],
-  [/sheet|linen|duvet/i,            "ic-bed"],
-  [/towel/i,                        "ic-towel"],
-  [/poo|poop|litter/i,              "ic-paw"],
-  [/groc|shop|market/i,             "ic-basket"],
-  [/bin|rubbish|trash|recycl/i,     "ic-bin"],
-  [/toilet|loo|bathroom/i,          "ic-toilet"],
-  [/laundry|washing|clothes/i,      "ic-washer"],
-  [/board|chopping|butcher/i,       "ic-board"],
-  [/plant|garden|water|lawn/i,      "ic-plant"],
-  [/dog|cat|pet/i,                  "ic-paw"]
+  [/\b(dog|pet|cat)s?\s*bed\b/i,      "ic-dogbed"],
+  [/deworm|worming|wormer|flea/i,     "ic-pet-meds"],
+  [/medicat|tablet|pill|vitamin/i,    "ic-pill"],
+  [/vacuum|hoover/i,                  "ic-vacuum"],
+  [/\bmop\w*|\bfloors?\b/i,           "ic-mop"],
+  [/sheet|linen|duvet/i,              "ic-bed"],
+  [/towel/i,                          "ic-towel"],
+  [/\bpoo\w*|litter/i,                "ic-paw"],
+  [/groc|shop|market/i,               "ic-basket"],
+  [/\bbins?\b|rubbish|trash|recycl/i, "ic-bin"],
+  [/toilet|\bloo\b|bathroom/i,        "ic-toilet"],
+  [/laundry|washing|clothes/i,        "ic-washer"],
+  [/\bboards?\b|chopping|butcher/i,   "ic-board"],
+  [/plant|garden|water|lawn/i,        "ic-plant"],
+  [/\b(dogs?|cats?|pets?)\b/i,        "ic-paw"]
 ];
 // Returns the bare id; the template supplies the "#" so the pre-hydration
 // placeholder reads as a fragment and never fires off a request for it.
