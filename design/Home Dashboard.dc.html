@@ -146,6 +146,13 @@
     </div>
   </header>
 
+  <sc-if value="{{ hasPending }}" hint-placeholder-val="{{ false }}">
+    <div style="margin:0 20px 12px;padding:11px 14px;border-radius:12px;background:#17120f;border:1px solid #2b1f18;display:flex;align-items:center;gap:10px">
+      <span style="flex-shrink:0;width:7px;height:7px;border-radius:50%;background:#e2683a"></span>
+      <span style="font-size:13px;color:#e8ded6;line-height:1.45">{{ pendingLabel }}</span>
+    </div>
+  </sc-if>
+
   <sc-if value="{{ showNotifBanner }}" hint-placeholder-val="{{ false }}">
     <div style="margin:0 20px 14px;padding:14px 15px;border-radius:14px;background:#1a1210;border:1px solid #3a2018;display:flex;align-items:center;justify-content:space-between;gap:12px">
       <div style="font-size:13.5px;line-height:1.5;color:{{ notifBannerTint }};text-wrap:pretty">{{ notifBannerText }}</div>
@@ -824,6 +831,7 @@ class Component extends DCLogic {
   state = {
     view: "home", who: "Kal", detailId: null, laterOpen: false,
     cal: null, groceries: null, staples: null, newItem: "", regularsOpen: true, newPrivate: false, newMode: "interval", newWeeks: "", newStart: "",
+    pending: 0,
     newName: "", newInterval: "", toast: null, notifState: "default",
     pushState: "off", pushError: "",
     // Server mode keeps the log out of the 60s poll and pages it in on demand;
@@ -868,9 +876,15 @@ class Component extends DCLogic {
       this.applyServer(data);
       this.setState({ booted: true });
       fetch("/api/config").then(x => x.json()).then(c => { this.vapid = c.vapidPublicKey; }).catch(() => {});
+      // Anything left queued from a previous session goes up first, before the
+      // lists are read back — otherwise the server's older answer would win.
+      this.loadOutbox();
+      await this.flush();
       this.loadCalendar();
       this.loadGroceries();
       this.loadStaples();
+      // Coming back on signal is the moment to drain the queue.
+      window.addEventListener("online", () => { this.flush().then(() => this.reload()); });
       this.poll = setInterval(() => this.reload(), 60000);
       if (typeof document !== "undefined") {
         document.addEventListener("visibilitychange", () => {
@@ -929,6 +943,13 @@ class Component extends DCLogic {
   }
   async reload() {
     if (!this.server) return;
+    if (this.outbox.length) {
+      await this.flush();
+      // Still queued means still no connection. Reconciling now would let the
+      // server's older answer overwrite changes that haven't gone up yet —
+      // which is exactly how a tick used to disappear.
+      if (this.outbox.length) return;
+    }
     try { const r = await fetch(this.scoped("/api/tasks")); if (r.ok) this.applyServer(await r.json()); } catch (e) {}
     this.loadGroceries();
   }
@@ -944,7 +965,9 @@ class Component extends DCLogic {
   }
 
   async loadGroceries() {
-    if (!this.server) return;
+    // Same reasoning as reload(): a pending grocery change must not be
+    // overwritten by the list as the server last knew it.
+    if (!this.server || this.outbox.length) return;
     try {
       const r = await fetch("/api/grocery");
       if (!r.ok) return;
@@ -978,11 +1001,8 @@ class Component extends DCLogic {
   }
 
   groceryPost(method, body) {
-    return fetch("/api/grocery", {
-      method: method,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body || {})
-    }).catch(() => {});
+    if (!this.server) return Promise.resolve(null);
+    return this.enqueue({ path: "/grocery", method: method, body: body || {} });
   }
 
   // The whole log, newest first, a page at a time. `more` appends the next page
@@ -1017,20 +1037,91 @@ class Component extends DCLogic {
       this.setState({ detailLog: [] });
     }
   }
+  // ---- the outbox ----
+  //
+  // Every write goes through here rather than being fired and forgotten. A tick
+  // made in the back garden with no signal used to show a success toast, get
+  // swallowed by a .catch(), and then quietly revert on the next poll — the app
+  // claiming a job was done when nothing had been saved. Now it waits on the
+  // phone and goes up when there's a connection.
+  outbox = [];
+
+  loadOutbox() {
+    try {
+      const raw = localStorage.getItem("homedash.outbox");
+      this.outbox = raw ? (JSON.parse(raw) || []) : [];
+    } catch (e) { this.outbox = []; }
+  }
+
+  saveOutbox() {
+    try { localStorage.setItem("homedash.outbox", JSON.stringify(this.outbox)); } catch (e) {}
+    if (this.state.pending !== this.outbox.length) this.setState({ pending: this.outbox.length });
+  }
+
+  enqueue(op) {
+    this.outbox.push(op);
+    this.saveOutbox();
+    // Resolves with the server's reply once it lands, or null while it waits.
+    return this.flush().then(() => (op.result === undefined ? null : op.result));
+  }
+
+  async flush() {
+    if (!this.server || this.flushing) return;
+    this.flushing = true;
+    try {
+      // In order: a tick and the undo of it must not cross.
+      while (this.outbox.length) {
+        const op = this.outbox[0];
+        let res;
+        try {
+          res = await fetch("/api" + op.path, {
+            method: op.method,
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(op.body)
+          });
+        } catch (e) {
+          break;                      // unreachable — keep it and try later
+        }
+        if (res.ok) {
+          try { op.result = await res.json(); } catch (e) { op.result = null; }
+          this.outbox.shift(); this.saveOutbox();
+          continue;
+        }
+        if (res.status >= 400 && res.status < 500) {
+          // Refused rather than unreachable. Retrying would fail the same way,
+          // so drop it and say so instead of retrying forever in silence.
+          this.outbox.shift(); this.saveOutbox();
+          this.showToast("One change couldn't be saved", null);
+          continue;
+        }
+        break;                        // server trouble — try again later
+      }
+    } finally {
+      this.flushing = false;
+      this.saveOutbox();
+    }
+  }
+
+  // Undoing something that never left the phone just removes it from the queue.
+  // There is nothing on the server to undo, and sending one would be wrong.
+  cancelQueued(taskId) {
+    const before = this.outbox.length;
+    this.outbox = this.outbox.filter(op => !(
+      op.path === "/complete" && op.body &&
+      Number(op.body.id) === Number(taskId) && op.body.kind !== "undo"
+    ));
+    if (this.outbox.length === before) return false;
+    this.saveOutbox();
+    return true;
+  }
+
   send(path, body) {
-    if (!this.server) return Promise.resolve();
-    return fetch("/api" + path, {
-      method: body && body._method ? body._method : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    }).catch(() => {});
+    if (!this.server) return Promise.resolve(null);
+    return this.enqueue({ path: path, method: (body && body._method) || "POST", body: body });
   }
   patch(id, payload) {
-    if (!this.server) return Promise.resolve();
-    return fetch("/api/tasks", {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign({ id: Number(id) }, payload))
-    }).catch(() => {});
+    if (!this.server) return Promise.resolve(null);
+    return this.enqueue({ path: "/tasks", method: "PATCH", body: Object.assign({ id: Number(id) }, payload) });
   }
 
   componentDidUpdate() { this.persist(); }
@@ -1175,6 +1266,9 @@ class Component extends DCLogic {
     const acked = this.record("/complete", { id: Number(id), who: who, kind: "done" });
     this.showToast(t.name + " ticked off", () => {
       this.mutate(id, n => Object.assign(n, prev));
+      // If the tick never left the phone, drop it from the queue instead of
+      // sending an undo for something the server never saw.
+      if (this.cancelQueued(id)) return;
       acked.then(historyId => this.send("/complete", { id: Number(id), kind: "undo", historyId: historyId }));
     });
   }
@@ -1183,10 +1277,8 @@ class Component extends DCLogic {
   // reverses that exact entry rather than whatever happens to be newest — which
   // could be the other phone's tick.
   record(path, body) {
-    return this.send(path, body)
-      .then(r => (r && r.ok ? r.json() : null))
-      .then(d => (d ? d.historyId : null))
-      .catch(() => null);
+    // null while the write is still queued; undo falls back to the newest row.
+    return this.send(path, body).then(d => (d && d.historyId) || null).catch(() => null);
   }
   skip(id) {
     const t = this.state.tasks.find(x => x.id === id);
@@ -1201,6 +1293,9 @@ class Component extends DCLogic {
     const acked = this.record("/complete", { id: Number(id), kind: "skipped" });
     this.showToast(t.name + " skipped", () => {
       this.mutate(id, n => Object.assign(n, prev));
+      // If the tick never left the phone, drop it from the queue instead of
+      // sending an undo for something the server never saw.
+      if (this.cancelQueued(id)) return;
       acked.then(historyId => this.send("/complete", { id: Number(id), kind: "undo", historyId: historyId }));
     });
   }
@@ -1675,6 +1770,8 @@ class Component extends DCLogic {
         this.reload();
         if (s.view === "history") this.loadLog(false);
       },
+      hasPending: s.pending > 0,
+      pendingLabel: plural(s.pending, "change") + " saved on this phone, waiting for a connection.",
       onServer: !!this.server,
       showNotifBanner: s.pushState !== "on",
       notifButtonLabel: s.pushState === "working" ? "Working…" : s.pushState === "error" ? "Try again" : "Allow",
