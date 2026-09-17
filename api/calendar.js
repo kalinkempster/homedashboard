@@ -1,7 +1,7 @@
 import { occurrences, todayISO, addDaysISO } from './_ics.js';
 import { sql } from './_db.js';
-import { binNightOnOrAfter } from './_bins.js';
-import { upcomingDeliveries } from './_deliveries.js';
+import { binNightOnOrAfter, binNights } from './_bins.js';
+import { upcomingDeliveries, deliverySchedule } from './_deliveries.js';
 
 // The family calendar comes from a secret iCal feed, read server-side so the
 // URL never reaches a phone. Birthdays do not: Google builds those from the
@@ -105,6 +105,9 @@ export default async function handler(req, res) {
     today, birthdays: [], events: [],
     bins: { ...binNightOnOrAfter(today), source: 'schedule' },
     deliveries: upcomingDeliveries(today),
+    // Enough to answer "when's the one after next" without a second request.
+    binsUpcoming: binNights(today, 8).map(n => ({ ...n, collection: addDaysISO(n.date, 1) })),
+    deliveriesUpcoming: deliverySchedule(today, 12),
     sources: {}
   };
 
@@ -126,6 +129,10 @@ export default async function handler(req, res) {
             .map(c => c.trim()).filter(Boolean),
           source: 'calendar'
         };
+        // Keep the list's first night agreeing with the banner above it.
+        if (out.binsUpcoming[0] && out.binsUpcoming[0].date === out.bins.date) {
+          out.binsUpcoming[0] = { ...out.binsUpcoming[0], colours: out.bins.colours, source: 'calendar' };
+        }
       }
 
       out.events = items.filter(e => !isCovered(e.summary)).map(e => ({

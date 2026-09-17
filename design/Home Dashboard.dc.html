@@ -172,12 +172,13 @@
       </sc-if>
 
       <sc-if value="{{ hasBins }}" hint-placeholder-val="{{ true }}">
-        <div style="margin-top:12px;padding:15px 16px;border-radius:16px;background:{{ binsBg }};border:1px solid {{ binsBorder }}">
+        <button onClick="{{ goBins }}" style="width:100%;text-align:left;margin-top:12px;padding:15px 16px;border-radius:16px;background:{{ binsBg }};border:1px solid {{ binsBorder }};color:#f2ede8" style-hover="border-color:#3a332e">
           <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
             <svg viewBox="0 0 24 24" style="width:19px;height:19px;color:{{ binsAccent }}"><use href="#ic-bin"/></svg>
             <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:{{ binsAccent }}">Bins</div>
             <div style="flex:1"></div>
             <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:{{ binsAccent }}">{{ binsWhen }}</div>
+            <span style="color:#4a443e;font-size:17px;line-height:1">›</span>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
             <sc-for list="{{ binColours }}" as="bin" hint-placeholder-count="3">
@@ -188,14 +189,16 @@
             </sc-for>
           </div>
           <div style="font-size:13px;color:#8d837a;line-height:1.5">{{ binsNote }}</div>
-        </div>
+        </button>
       </sc-if>
 
       <sc-if value="{{ hasDeliveries }}" hint-placeholder-val="{{ true }}">
-        <div style="margin-top:12px;padding:15px 16px;border-radius:16px;background:{{ deliveriesBg }};border:1px solid {{ deliveriesBorder }}">
+        <button onClick="{{ goDeliveries }}" style="width:100%;text-align:left;margin-top:12px;padding:15px 16px;border-radius:16px;background:{{ deliveriesBg }};border:1px solid {{ deliveriesBorder }};color:#f2ede8" style-hover="border-color:#3a332e">
           <div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">
             <svg viewBox="0 0 24 24" style="width:19px;height:19px;color:{{ deliveriesAccent }}"><use href="#ic-delivery"/></svg>
             <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:{{ deliveriesAccent }}">Deliveries</div>
+            <div style="flex:1"></div>
+            <span style="color:#4a443e;font-size:17px;line-height:1">›</span>
           </div>
           <sc-for list="{{ deliveries }}" as="d" hint-placeholder-count="2">
             <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:5px 0">
@@ -203,7 +206,7 @@
               <span style="flex-shrink:0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:{{ d.whenColor }}">{{ d.when }}</span>
             </div>
           </sc-for>
-        </div>
+        </button>
       </sc-if>
 
       <sc-if value="{{ hasEvents }}" hint-placeholder-val="{{ true }}">
@@ -238,6 +241,48 @@
           <span style="margin-top:3px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8d837a">{{ grocerySummary }}</span>
         </button>
       </div>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{ isBinsList }}" hint-placeholder-val="{{ false }}">
+    <main style="flex:1;padding:0 20px 120px;animation:riseIn 0.28s ease both">
+      <button onClick="{{ goHome }}" style="display:flex;align-items:center;gap:5px;padding:2px 0 14px;color:#8d837a;font-size:14px" style-hover="color:#f2ede8"><span style="font-size:17px;line-height:1">‹</span>Home</button>
+      <h2 style="margin:0 0 4px;font-size:22px;font-weight:600;letter-spacing:-0.02em">Bin nights</h2>
+      <div style="font-size:13.5px;color:#8d837a;line-height:1.55;margin-bottom:18px">{{ binsCadence }}</div>
+
+      <sc-for list="{{ binsList }}" as="night" hint-placeholder-count="6">
+        <div style="padding:14px 0;border-bottom:1px solid #1b1817">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:9px">
+            <span style="font-size:15.5px;font-weight:{{ night.weight }};color:{{ night.color }}">{{ night.outLabel }}</span>
+            <span style="flex-shrink:0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:{{ night.whenColor }}">{{ night.when }}</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:7px">
+            <sc-for list="{{ night.chips }}" as="bin" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:6px;height:30px;padding:0 11px 0 8px;border-radius:999px;background:#171514;border:1px solid #262220">
+                <span style="width:11px;height:11px;border-radius:50%;background:{{ bin.swatch }};border:1px solid {{ bin.ring }}"></span>
+                <span style="font-size:12.5px;font-weight:600;color:{{ bin.text }}">{{ bin.name }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{ isDeliveriesList }}" hint-placeholder-val="{{ false }}">
+    <main style="flex:1;padding:0 20px 120px;animation:riseIn 0.28s ease both">
+      <button onClick="{{ goHome }}" style="display:flex;align-items:center;gap:5px;padding:2px 0 14px;color:#8d837a;font-size:14px" style-hover="color:#f2ede8"><span style="font-size:17px;line-height:1">‹</span>Home</button>
+      <h2 style="margin:0 0 4px;font-size:22px;font-weight:600;letter-spacing:-0.02em">Deliveries</h2>
+      <div style="font-size:13.5px;color:#8d837a;line-height:1.55;margin-bottom:18px">{{ deliveriesCadence }}</div>
+
+      <sc-for list="{{ deliveriesList }}" as="day" hint-placeholder-count="6">
+        <div style="padding:13px 0;border-bottom:1px solid #1b1817">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
+            <span style="font-size:15.5px;font-weight:{{ day.weight }};color:{{ day.color }};min-width:0">{{ day.names }}</span>
+            <span style="flex-shrink:0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:{{ day.whenColor }}">{{ day.when }}</span>
+          </div>
+        </div>
+      </sc-for>
     </main>
   </sc-if>
 
@@ -1369,8 +1414,11 @@ class Component extends DCLogic {
     // The jobs tab stays lit while you're inside a job's detail or its history,
     // because you haven't left that section.
     const inTasks = s.view === "list" || s.view === "detail" || s.view === "history";
+    // The bin and delivery lists are opened from the home page, so Home stays
+    // lit while you're in them — they're a layer of Home, not a fifth tab.
+    const inHome = s.view === "home" || s.view === "binsList" || s.view === "deliveriesList";
     const tab = on => ({ bg: on ? "#1c1917" : "transparent", color: on ? "#f2ede8" : "#7d746c" });
-    const tho = tab(s.view === "home"), tl = tab(inTasks),
+    const tho = tab(inHome), tl = tab(inTasks),
           tg = tab(s.view === "grocery"), ts = tab(s.view === "settings");
 
     // ---- home ----
@@ -1435,6 +1483,45 @@ class Component extends DCLogic {
       };
     });
     const deliveryToday = deliveryRows.some(d => d.whenColor === "#e2683a");
+
+    // ---- the two schedule pages behind the banners ----
+    const binsList = (cal && cal.binsUpcoming ? cal.binsUpcoming : []).map(n => {
+      const away = daysBetweenISO(calToday, n.date);
+      const isNext = away === 0;
+      return {
+        // The night they go out is what you act on; the collection date is the
+        // deadline it meets, so the row says both.
+        outLabel: (isNext ? "Tonight" : new Date(n.date + "T12:00:00")
+          .toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })),
+        when: "Collected " + whenLabel(calToday, n.collection, null),
+        color: isNext ? "#f2ede8" : "#c8bfb6",
+        weight: isNext ? "600" : "400",
+        whenColor: isNext ? "#e2683a" : "#8d837a",
+        chips: n.colours.map(c => {
+          const sw = binSwatch(c);
+          return { name: sw.label || c, swatch: sw.swatch, ring: sw.ring, text: sw.text };
+        })
+      };
+    });
+
+    // One row per date, naming everything arriving that day, rather than the
+    // same date twice when both deliveries land together.
+    const byDate = [];
+    for (const d of (cal && cal.deliveriesUpcoming ? cal.deliveriesUpcoming : [])) {
+      let row = byDate[byDate.length - 1];
+      if (!row || row.date !== d.date) { row = { date: d.date, names: [] }; byDate.push(row); }
+      row.names.push(d.name);
+    }
+    const deliveriesList = byDate.map(r => {
+      const away = daysBetweenISO(calToday, r.date);
+      return {
+        names: r.names.join(" · "),
+        when: whenLabel(calToday, r.date, null),
+        color: away === 0 ? "#f2ede8" : "#c8bfb6",
+        weight: away === 0 ? "600" : "400",
+        whenColor: away === 0 ? "#e2683a" : "#8d837a"
+      };
+    });
 
     // Only worth saying something when a feed is actually misconfigured; a
     // quiet fortnight isn't a problem to report.
@@ -1518,6 +1605,15 @@ class Component extends DCLogic {
       isHome: s.view === "home", isGrocery: s.view === "grocery",
       isList: s.view === "list", isDetail: s.view === "detail" && !!d,
       isHistory: s.view === "history", isSettings: s.view === "settings",
+
+      isBinsList: s.view === "binsList",
+      isDeliveriesList: s.view === "deliveriesList",
+      goBins: () => this.setState({ view: "binsList" }),
+      goDeliveries: () => this.setState({ view: "deliveriesList" }),
+      binsList: binsList,
+      deliveriesList: deliveriesList,
+      binsCadence: "Out on the street Sunday night, collected Monday. General and green waste every week, recycling every fortnight, glass every four.",
+      deliveriesCadence: "Hello Fresh every Sunday, Raw & Fresh every second Sunday.",
 
       hasDeliveries: deliveryRows.length > 0,
       deliveries: deliveryRows,

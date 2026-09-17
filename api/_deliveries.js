@@ -36,3 +36,19 @@ export function upcomingDeliveries(todayISO) {
     .map(s => ({ name: s.name, date: nextFrom(s, todayISO), every: s.every }))
     .sort((a, b) => a.date.localeCompare(b.date) || a.every - b.every);
 }
+
+// The next `count` arrivals across every series, merged into one timeline.
+// Each series contributes `count` of its own before the merge, so the prefix
+// is complete however far apart the two cadences are.
+export function deliverySchedule(todayISO, count) {
+  const out = [];
+  for (const s of DELIVERIES) {
+    let date = nextFrom(s, todayISO);
+    for (let i = 0; i < count; i++) {
+      out.push({ name: s.name, date, every: s.every });
+      date = new Date(toMs(date) + s.every * DAY).toISOString().slice(0, 10);
+    }
+  }
+  out.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+  return out.slice(0, count);
+}
