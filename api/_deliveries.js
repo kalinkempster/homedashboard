@@ -13,8 +13,8 @@
 const DAY = 86400000;
 
 export const DELIVERIES = [
-  { name: 'Hello Fresh', every: 7,  anchor: '2026-09-06' },
-  { name: 'Dog food',    every: 14, anchor: '2026-09-06' }
+  { name: 'Hello Fresh',  every: 7,  anchor: '2026-09-06' },
+  { name: 'Raw & Fresh',  every: 14, anchor: '2026-09-06' }
 ];
 
 function toMs(iso) {

@@ -20,7 +20,9 @@ const BIN_RE = /^\s*bins?\s*[:\-]\s*/i;
 // so the list only ever shows what genuinely lives on the calendar alone.
 //   bins          → its own banner, from the four-week roster
 //   hello fresh   → delivery in the deliveries banner; the order window is a job
-//   dog food      → delivery in the deliveries banner
+//   dog food      → delivery in the deliveries banner, shown as "Raw & Fresh".
+//                   This matches the calendar's own wording, not ours, so it
+//                   keeps working however the banner labels it.
 //   deworming     → a household job
 const COVERED = [BIN_RE, /hello\s*fresh/i, /dog\s*food/i, /deworm/i];
 const isCovered = summary => COVERED.some(re => re.test(summary));
