@@ -1,6 +1,7 @@
 import { occurrences, todayISO, addDaysISO } from './_ics.js';
 import { sql } from './_db.js';
 import { binNightOnOrAfter } from './_bins.js';
+import { upcomingDeliveries } from './_deliveries.js';
 
 // The family calendar comes from a secret iCal feed, read server-side so the
 // URL never reaches a phone. Birthdays do not: Google builds those from the
@@ -13,6 +14,16 @@ const FEEDS = {
 // "Bins: Red, Green, Yellow" — the leading label is stripped and what's left
 // is the list of lids going out.
 const BIN_RE = /^\s*bins?\s*[:\-]\s*/i;
+
+// Series the dashboard now works out for itself. They're kept out of the events
+// list so nothing appears twice while the calendar entries are still there, and
+// so the list only ever shows what genuinely lives on the calendar alone.
+//   bins          → its own banner, from the four-week roster
+//   hello fresh   → delivery in the deliveries banner; the order window is a job
+//   dog food      → delivery in the deliveries banner
+//   deworming     → a household job
+const COVERED = [BIN_RE, /hello\s*fresh/i, /dog\s*food/i, /deworm/i];
+const isCovered = summary => COVERED.some(re => re.test(summary));
 
 const WINDOW_DAYS = 45;
 const CACHE_MS = 15 * 60 * 1000;
@@ -91,6 +102,7 @@ export default async function handler(req, res) {
   const out = {
     today, birthdays: [], events: [],
     bins: { ...binNightOnOrAfter(today), source: 'schedule' },
+    deliveries: upcomingDeliveries(today),
     sources: {}
   };
 
@@ -114,7 +126,7 @@ export default async function handler(req, res) {
         };
       }
 
-      out.events = items.filter(e => !BIN_RE.test(e.summary)).map(e => ({
+      out.events = items.filter(e => !isCovered(e.summary)).map(e => ({
         summary: e.summary, date: e.date, time: e.time, allDay: e.allDay
       }));
       out.sources[name] = 'ok';

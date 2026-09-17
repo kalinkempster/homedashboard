@@ -98,6 +98,11 @@
     <ellipse cx="8.2" cy="8.9" rx="1.5" ry="2.05"/><ellipse cx="12.6" cy="8.7" rx="1.5" ry="2.05"/>
     <path d="M18.8 3.6v4.2"/><path d="M16.7 5.7h4.2"/>
   </symbol>
+  <symbol id="ic-delivery" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.2 7.6 12 3.4l8.8 4.2v8.8L12 20.6l-8.8-4.2z"/>
+    <path d="M3.2 7.6 12 11.8l8.8-4.2"/><path d="M12 11.8v8.8"/>
+    <path d="M7.6 5.5l8.8 4.2v3"/>
+  </symbol>
   <symbol id="ic-meal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="6.2"/><circle cx="12" cy="12" r="2.9"/>
     <path d="M3.4 3.6v4.1a1.9 1.9 0 0 0 3.8 0V3.6"/><path d="M5.3 7.7v12.7"/>
@@ -183,6 +188,21 @@
             </sc-for>
           </div>
           <div style="font-size:13px;color:#8d837a;line-height:1.5">{{ binsNote }}</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ hasDeliveries }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:12px;padding:15px 16px;border-radius:16px;background:{{ deliveriesBg }};border:1px solid {{ deliveriesBorder }}">
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">
+            <svg viewBox="0 0 24 24" style="width:19px;height:19px;color:{{ deliveriesAccent }}"><use href="#ic-delivery"/></svg>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:{{ deliveriesAccent }}">Deliveries</div>
+          </div>
+          <sc-for list="{{ deliveries }}" as="d" hint-placeholder-count="2">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:5px 0">
+              <span style="font-size:15px;font-weight:{{ d.weight }};color:{{ d.color }};min-width:0">{{ d.name }}</span>
+              <span style="flex-shrink:0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:{{ d.whenColor }}">{{ d.when }}</span>
+            </div>
+          </sc-for>
         </div>
       </sc-if>
 
@@ -1401,6 +1421,21 @@ class Component extends DCLogic {
       : binDays === 1 ? "Out on the street tomorrow night."
       : "Out on the street " + outNight + " night.";
 
+    // Deliveries arrive during the day, so one landing today is worth lifting
+    // the whole banner for — it's the difference between a box on the step and
+    // a box left out overnight.
+    const deliveryRows = (cal && cal.deliveries ? cal.deliveries : []).map(d => {
+      const n = daysBetweenISO(calToday, d.date);
+      return {
+        name: d.name,
+        when: whenLabel(calToday, d.date, null),
+        color: n === 0 ? "#f2ede8" : "#c8bfb6",
+        weight: n === 0 ? "600" : "400",
+        whenColor: n === 0 ? "#e2683a" : "#8d837a"
+      };
+    });
+    const deliveryToday = deliveryRows.some(d => d.whenColor === "#e2683a");
+
     // Only worth saying something when a feed is actually misconfigured; a
     // quiet fortnight isn't a problem to report.
     const src = cal && cal.sources ? cal.sources : {};
@@ -1483,6 +1518,12 @@ class Component extends DCLogic {
       isHome: s.view === "home", isGrocery: s.view === "grocery",
       isList: s.view === "list", isDetail: s.view === "detail" && !!d,
       isHistory: s.view === "history", isSettings: s.view === "settings",
+
+      hasDeliveries: deliveryRows.length > 0,
+      deliveries: deliveryRows,
+      deliveriesAccent: deliveryToday ? "#e2683a" : "#8d837a",
+      deliveriesBg: deliveryToday ? "#17120f" : "#131110",
+      deliveriesBorder: deliveryToday ? "#2b1f18" : "#1e1b19",
 
       hasBins: !!bins,
       binColours: binColours,
