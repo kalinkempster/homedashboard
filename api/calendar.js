@@ -27,7 +27,10 @@ const BIN_RE = /^\s*bins?\s*[:\-]\s*/i;
 const COVERED = [BIN_RE, /hello\s*fresh/i, /dog\s*food/i, /deworm/i];
 const isCovered = summary => COVERED.some(re => re.test(summary));
 
-const WINDOW_DAYS = 45;
+// The banner only shows the next few, but tapping it opens the run — so the
+// window is wide enough for that list to be worth opening. Birthdays use the
+// same horizon.
+const WINDOW_DAYS = 120;
 // Long enough that two phones polling don't refetch a 260KB feed each time,
 // short enough that something added to the calendar turns up while you still
 // remember adding it. Google's own publishing delay dominates either way.

@@ -210,10 +210,12 @@
       </sc-if>
 
       <sc-if value="{{ hasEvents }}" hint-placeholder-val="{{ true }}">
-        <div style="margin-top:12px;padding:15px 16px;border-radius:16px;background:#131110;border:1px solid #1e1b19">
+        <button onClick="{{ goEvents }}" style="width:100%;text-align:left;margin-top:12px;padding:15px 16px;border-radius:16px;background:#131110;border:1px solid #1e1b19;color:#f2ede8" style-hover="border-color:#3a332e">
           <div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">
             <svg viewBox="0 0 24 24" style="width:19px;height:19px;color:#8d837a"><use href="#ic-calendar"/></svg>
             <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:#968c83">On the family calendar</div>
+            <div style="flex:1"></div>
+            <span style="color:#4a443e;font-size:17px;line-height:1">›</span>
           </div>
           <sc-for list="{{ events }}" as="e" hint-placeholder-count="3">
             <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:5px 0">
@@ -221,7 +223,10 @@
               <span style="flex-shrink:0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:{{ e.whenColor }}">{{ e.when }}</span>
             </div>
           </sc-for>
-        </div>
+          <sc-if value="{{ moreEvents }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6d645c">{{ moreEventsLabel }}</div>
+          </sc-if>
+        </button>
       </sc-if>
 
       <sc-if value="{{ calProblem }}" hint-placeholder-val="{{ false }}">
@@ -283,6 +288,30 @@
           </div>
         </div>
       </sc-for>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{ isEventsList }}" hint-placeholder-val="{{ false }}">
+    <main style="flex:1;padding:0 20px 120px;animation:riseIn 0.28s ease both">
+      <button onClick="{{ goHome }}" style="display:flex;align-items:center;gap:5px;padding:2px 0 14px;color:#8d837a;font-size:14px" style-hover="color:#f2ede8"><span style="font-size:17px;line-height:1">‹</span>Home</button>
+      <h2 style="margin:0 0 4px;font-size:22px;font-weight:600;letter-spacing:-0.02em">On the family calendar</h2>
+      <div style="font-size:13.5px;color:#8d837a;line-height:1.55;margin-bottom:18px">{{ eventsSubtitle }}</div>
+
+      <sc-for list="{{ eventGroups }}" as="group" hint-placeholder-count="3">
+        <div style="margin-bottom:20px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;color:#968c83;padding-bottom:8px;border-bottom:1px solid #1d1a18">{{ group.label }}</div>
+          <sc-for list="{{ group.rows }}" as="e" hint-placeholder-count="3">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:12px 2px;border-bottom:1px solid #151312">
+              <span style="font-size:15px;font-weight:{{ e.weight }};color:{{ e.color }};min-width:0">{{ e.summary }}</span>
+              <span style="flex-shrink:0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:{{ e.whenColor }}">{{ e.when }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+
+      <sc-if value="{{ eventsEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:20px 2px;font-size:14.5px;color:#8d837a;line-height:1.55">Nothing on the family calendar for the next few months, beyond what the dashboard already tracks.</div>
+      </sc-if>
     </main>
   </sc-if>
 
@@ -1443,7 +1472,8 @@ class Component extends DCLogic {
     const inTasks = s.view === "list" || s.view === "detail" || s.view === "history";
     // The bin and delivery lists are opened from the home page, so Home stays
     // lit while you're in them — they're a layer of Home, not a fifth tab.
-    const inHome = s.view === "home" || s.view === "binsList" || s.view === "deliveriesList";
+    const inHome = s.view === "home" || s.view === "binsList"
+      || s.view === "deliveriesList" || s.view === "eventsList";
     const tab = on => ({ bg: on ? "#1c1917" : "transparent", color: on ? "#f2ede8" : "#7d746c" });
     const tho = tab(inHome), tl = tab(inTasks),
           tg = tab(s.view === "grocery"), ts = tab(s.view === "settings");
@@ -1464,6 +1494,30 @@ class Component extends DCLogic {
         whenColor: isToday ? "#e2683a" : "#8d837a"
       };
     });
+    const allEvents = cal && cal.events ? cal.events : [];
+    const eventRow = e => {
+      const n = daysBetweenISO(calToday, e.date);
+      const running = n <= 0 && (!e.endDate || daysBetweenISO(calToday, e.endDate) >= 0);
+      return {
+        summary: e.summary,
+        when: rangeLabel(calToday, e.date, e.endDate, e.time),
+        color: running ? "#f2ede8" : "#c8bfb6",
+        weight: running ? "600" : "400",
+        whenColor: running ? "#d9a441" : "#8d837a"
+      };
+    };
+
+    // The full run, under a heading per month — the same shape the job history
+    // uses, so a longer list stays readable.
+    const eventGroups = [];
+    for (const e of allEvents) {
+      const [y, m] = e.date.split("-").map(Number);
+      const label = new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+      let g = eventGroups[eventGroups.length - 1];
+      if (!g || g.label !== label) { g = { label: label, rows: [] }; eventGroups.push(g); }
+      g.rows.push(eventRow(e));
+    }
+
     const events = (cal && cal.events ? cal.events : []).slice(0, 5).map(e => {
       // A multi-day event counts as on today for the whole run, not just the
       // morning it starts — you're still in Cairns on day three.
@@ -1635,6 +1689,14 @@ class Component extends DCLogic {
       isHome: s.view === "home", isGrocery: s.view === "grocery",
       isList: s.view === "list", isDetail: s.view === "detail" && !!d,
       isHistory: s.view === "history", isSettings: s.view === "settings",
+
+      isEventsList: s.view === "eventsList",
+      goEvents: () => this.setState({ view: "eventsList" }),
+      eventGroups: eventGroups,
+      eventsEmpty: eventGroups.length === 0,
+      eventsSubtitle: "Everything on the shared calendar for the next few months. Bins, deliveries and anything that's become a job are tracked on their own and left out here.",
+      moreEvents: allEvents.length > 5,
+      moreEventsLabel: "+ " + (allEvents.length - 5) + " more",
 
       isBinsList: s.view === "binsList",
       isDeliveriesList: s.view === "deliveriesList",
