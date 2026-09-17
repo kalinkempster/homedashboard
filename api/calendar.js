@@ -28,7 +28,10 @@ const COVERED = [BIN_RE, /hello\s*fresh/i, /dog\s*food/i, /deworm/i];
 const isCovered = summary => COVERED.some(re => re.test(summary));
 
 const WINDOW_DAYS = 45;
-const CACHE_MS = 15 * 60 * 1000;
+// Long enough that two phones polling don't refetch a 260KB feed each time,
+// short enough that something added to the calendar turns up while you still
+// remember adding it. Google's own publishing delay dominates either way.
+const CACHE_MS = 5 * 60 * 1000;
 const cache = new Map();
 
 // Google's feeds are slow and rate-limited, and the dashboard polls. A warm

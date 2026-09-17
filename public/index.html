@@ -844,7 +844,15 @@ class Component extends DCLogic {
       this.loadStaples();
       this.poll = setInterval(() => this.reload(), 60000);
       if (typeof document !== "undefined") {
-        document.addEventListener("visibilitychange", () => { if (!document.hidden) this.reload(); });
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) return;
+          this.reload();
+          // Picking the phone up is the moment to check the calendar again. It
+          // stays off the 60s poll — calendars don't change that often, and the
+          // response is edge-cached — but "reopen the app" has to be enough to
+          // see something you just added.
+          this.loadCalendar();
+        });
       }
     } catch (e) {
       // Unreachable API: fall back to the last snapshot. A snapshot taken while
