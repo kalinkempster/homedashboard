@@ -136,7 +136,8 @@ export default async function handler(req, res) {
       }
 
       out.events = items.filter(e => !isCovered(e.summary)).map(e => ({
-        summary: e.summary, date: e.date, time: e.time, allDay: e.allDay
+        summary: e.summary, date: e.date, endDate: e.endDate,
+        days: e.days, time: e.time, allDay: e.allDay
       }));
       out.sources[name] = 'ok';
     } catch (err) {

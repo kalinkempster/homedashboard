@@ -701,6 +701,25 @@ function whenLabel(todayISO, dateISO, time) {
   const day = dt.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
   return n < 7 ? day + clock : day;
 }
+// A run of days reads as one span rather than a start date that says nothing
+// about how long it goes on. The month is carried by whichever end needs it:
+// "Mon 21 – 26 Sept" within a month, "Mon 28 Sept – 2 Oct" across one.
+function rangeLabel(todayISO, startISO, endISO, time) {
+  if (!endISO || endISO === startISO) return whenLabel(todayISO, startISO, time);
+  const dm = (iso, withMonth) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-GB",
+      withMonth ? { weekday: "short", day: "numeric", month: "short" }
+                : { weekday: "short", day: "numeric" });
+  };
+  const sameMonth = startISO.slice(0, 7) === endISO.slice(0, 7);
+  const n = daysBetweenISO(todayISO, startISO);
+  const head = n === 0 ? "Today" : n === 1 ? "Tomorrow" : dm(startISO, !sameMonth);
+  const [ey, em, ed] = endISO.split("-").map(Number);
+  const tail = new Date(ey, em - 1, ed).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return head + " – " + tail;
+}
+
 function friendlyTime(t) {
   const [h, m] = t.split(":").map(Number);
   const ampm = h < 12 ? "am" : "pm";
@@ -1438,12 +1457,15 @@ class Component extends DCLogic {
       };
     });
     const events = (cal && cal.events ? cal.events : []).slice(0, 5).map(e => {
+      // A multi-day event counts as on today for the whole run, not just the
+      // morning it starts — you're still in Cairns on day three.
       const n = daysBetweenISO(calToday, e.date);
+      const running = n <= 0 && (!e.endDate || daysBetweenISO(calToday, e.endDate) >= 0);
       return {
         summary: e.summary,
-        when: whenLabel(calToday, e.date, e.time),
-        color: n === 0 ? "#f2ede8" : "#c8bfb6",
-        whenColor: n === 0 ? "#d9a441" : "#8d837a"
+        when: rangeLabel(calToday, e.date, e.endDate, e.time),
+        color: running ? "#f2ede8" : "#c8bfb6",
+        whenColor: running ? "#d9a441" : "#8d837a"
       };
     });
 

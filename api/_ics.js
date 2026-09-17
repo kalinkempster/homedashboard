@@ -60,6 +60,21 @@ function shiftToLocal(ms) {
 // Sortable YYYYMMDD, so window checks never build a Date.
 const key = d => d.y * 10000 + d.m * 100 + d.d;
 const iso = d => d.y + '-' + String(d.m).padStart(2, '0') + '-' + String(d.d).padStart(2, '0');
+const msOf = d => Date.UTC(d.y, d.m - 1, d.d);
+const DAY = 86400000;
+
+// How many days past its start an event runs. 0 means it begins and ends on
+// the same day.
+//
+// The catch is that an all-day DTEND is *exclusive*: a trip written as the
+// 21st to the 27th ends on the 26th. Treating it literally would add a phantom
+// day to every multi-day event. Timed events have a real end instant, so their
+// span is just the difference between the two local dates.
+function spanDays(ev) {
+  if (!ev.end) return 0;
+  const days = Math.round((msOf(ev.end) - msOf(ev.start)) / DAY);
+  return Math.max(ev.start.allDay ? days - 1 : days, 0);
+}
 
 function parseRule(value) {
   const r = {};
@@ -118,6 +133,7 @@ export function parseICS(text) {
     const value = m[3];
 
     if (name === 'DTSTART') { cur.start = parseStamp(value, params); cur.tzid = params.TZID || null; }
+    else if (name === 'DTEND') cur.end = parseStamp(value, params);
     else if (name === 'SUMMARY') cur.summary = unescapeText(value);
     else if (name === 'RRULE') cur.rule = parseRule(value);
     else if (name === 'STATUS') cur.status = value.trim().toUpperCase();
@@ -143,10 +159,15 @@ export function occurrences(text, fromISO, toISO) {
     if (!ev.start || !ev.summary) continue;
     if (ev.status === 'CANCELLED') continue;
 
+    const span = spanDays(ev);
+
     const push = d => {
+      const last = span > 0 ? addDays(d, span) : null;
       out.push({
         summary: ev.summary,
         date: iso(d),
+        endDate: last ? iso(last) : null,
+        days: span + 1,
         allDay: !!d.allDay,
         time: d.allDay || d.hh === null ? null
           : String(d.hh).padStart(2, '0') + ':' + String(d.mm).padStart(2, '0'),
@@ -154,9 +175,14 @@ export function occurrences(text, fromISO, toISO) {
       });
     };
 
+    // A run of days counts as in the window while any part of it is, so a trip
+    // that started before today keeps showing until it actually ends rather
+    // than vanishing the morning after it began.
+    const endsOnOrAfterFrom = d => key(addDays(d, span)) >= from;
+
     if (!ev.rule || !ev.rule.freq) {
       const k = key(ev.start);
-      if (k >= from && k <= to) push(ev.start);
+      if (k <= to && endsOnOrAfterFrom(ev.start)) push(ev.start);
       continue;
     }
 
@@ -167,14 +193,14 @@ export function occurrences(text, fromISO, toISO) {
     let emitted = 0;
     for (let n = 0; n < 4000; n++) {
       const d = nth(ev.start, r.freq, r.interval * n);
-      if (d === undefined) { if (key(ev.start) >= from && key(ev.start) <= to) push(ev.start); break; }
+      if (d === undefined) { if (key(ev.start) <= to && endsOnOrAfterFrom(ev.start)) push(ev.start); break; }
       if (d === null) continue;      // a date this month doesn't have
 
       const k = key(d);
       if (r.until && k > key(r.until)) break;
       if (r.count !== null && emitted >= r.count) break;
       if (k > to) break;
-      if (k >= from && !ev.exdates.includes(k)) push(d);
+      if (endsOnOrAfterFrom(d) && !ev.exdates.includes(k)) push(d);
       emitted++;
     }
   }
