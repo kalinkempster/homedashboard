@@ -97,6 +97,9 @@ async function binsDueToday(today, req) {
 export default async function handler(req, res) {
   const q = req.query || {};
   const force = q.force === '1';
+  // Works out exactly what each person would be sent, and sends nothing. The
+  // digest is otherwise only observable by firing it at two phones.
+  const preview = q.preview === '1';
   const subs = await sql`select * from subscriptions order by id`;
 
   // Private reminders are routed by the name a phone registered under, so it
@@ -130,7 +133,7 @@ export default async function handler(req, res) {
   // Bins first: it's an evening job on whatever night the calendar names, so it
   // has nothing to do with the morning digest below and must be checked even
   // once that has already claimed the day.
-  if (q.bins !== '0') {
+  if (q.bins !== '0' && !preview) {
     try {
       const bins = await binsDueToday(today, req);
       if (bins) {
@@ -157,7 +160,7 @@ export default async function handler(req, res) {
     }
   }
 
-  if (!force) {
+  if (!force && !preview) {
     if (hour < SEND_HOUR || hour >= QUIET_START) {
       return res.json({ skipped: 'outside the send window', bins: binResult, hour, sendHour: SEND_HOUR, timezone: TZ });
     }
@@ -265,6 +268,7 @@ export default async function handler(req, res) {
     const items = shared.concat(owned.get(person) || []);
     if (!items.length) continue;
     const payload = digestFor(items);
+    if (preview) { results.push({ who: person, notification: payload, wouldReach: theirDevices.length }); continue; }
     const r = await pushToAll(theirDevices, payload);
     for (const e of items) stamped.add(keyOf(e));
     results.push({ who: person, notification: payload, devices: r });
