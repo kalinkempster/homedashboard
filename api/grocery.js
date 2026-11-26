@@ -7,6 +7,7 @@ import { sql } from './_db.js';
 //   POST   { name, who }           → add
 //   PATCH  { id, done, who }       → tick or untick
 //   DELETE { id } | { clearDone }  → remove one, or every ticked item
+//          | { clearOpen }         → empty what's still to buy
 
 let ready = false;
 async function ensureTable() {
@@ -68,12 +69,19 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    const { id, clearDone } = req.body || {};
+    const { id, clearDone, clearOpen } = req.body || {};
     if (clearDone) {
       const rows = await sql`delete from grocery where done = true returning id`;
       return res.json({ cleared: rows.length });
     }
-    if (!id) return res.status(400).json({ error: 'id or clearDone required' });
+    // Empties what's still to buy, which is also what un-highlights every
+    // regular — the chips are lit by the item being on the list, not by a
+    // selection of their own.
+    if (clearOpen) {
+      const rows = await sql`delete from grocery where done = false returning id`;
+      return res.json({ cleared: rows.length });
+    }
+    if (!id) return res.status(400).json({ error: 'id, clearDone or clearOpen required' });
     await sql`delete from grocery where id = ${id}`;
     return res.json({ ok: true });
   }
