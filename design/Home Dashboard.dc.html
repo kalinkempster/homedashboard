@@ -547,7 +547,14 @@
       <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:{{ detailTint }};margin-bottom:22px">{{ detailStatus }}</div>
 
       <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:26px">
-        <button onClick="{{ detailDone }}" style="height:54px;border-radius:13px;background:#c2410c;color:#fff;font-size:16px;font-weight:600;letter-spacing:-0.01em" style-hover="background:#d24e15">Done just now</button>
+        <div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#968c83;margin-bottom:8px">Done by</div>
+          <div style="display:flex;gap:4px;padding:4px;background:#0e0d0c;border:1px solid #1b1817;border-radius:11px">
+            <button onClick="{{ creditMe }}" style="flex:1;height:38px;border-radius:8px;background:{{ creditMeBg }};color:{{ creditMeColor }};font-size:13.5px;font-weight:500" style-hover="color:#f2ede8">{{ who }}</button>
+            <button onClick="{{ creditOther }}" style="flex:1;height:38px;border-radius:8px;background:{{ creditOtherBg }};color:{{ creditOtherColor }};font-size:13.5px;font-weight:500" style-hover="color:#f2ede8">{{ otherName }}</button>
+          </div>
+        </div>
+        <button onClick="{{ detailDone }}" style="height:54px;border-radius:13px;background:#c2410c;color:#fff;font-size:16px;font-weight:600;letter-spacing:-0.01em" style-hover="background:#d24e15">{{ detailDoneLabel }}</button>
         <div style="display:flex;gap:9px">
           <button onClick="{{ detailSnooze }}" style="flex:1;height:50px;border-radius:12px;background:#151312;border:1px solid #242020;color:#e8ded6;font-size:14.5px;font-weight:500" style-hover="background:#1c1918">Not today</button>
           <button onClick="{{ detailSkip }}" style="flex:1;height:50px;border-radius:12px;background:#151312;border:1px solid #242020;color:#e8ded6;font-size:14.5px;font-weight:500" style-hover="background:#1c1918">Skip this one</button>
@@ -905,7 +912,7 @@ class Component extends DCLogic {
   state = {
     view: "home", who: "Kal", detailId: null, laterOpen: false,
     cal: null, groceries: null, staples: null, newItem: "", regularsOpen: true, newPrivate: false, newMode: "interval", newWeeks: "", newStart: "",
-    pending: 0, backdate: "",
+    pending: 0, backdate: "", creditTo: null,
     todos: null, newTodo: "", newTodoDue: "", newTodoMine: false,
     newName: "", newInterval: "", toast: null, notifState: "default",
     pushState: "off", pushError: "",
@@ -1354,7 +1361,7 @@ class Component extends DCLogic {
       press.timer = null;
       this.setState({ holdingId: null });
       if (navigator.vibrate) navigator.vibrate(12);
-      this.setState({ view: "detail", detailId: id });
+      this.setState({ view: "detail", detailId: id, creditTo: null, backdate: "" });
       this.loadDetailLog(id);
     }, this.HOLD_MS);
     this._press = press;
@@ -1385,14 +1392,16 @@ class Component extends DCLogic {
   }
   // `on` is an optional YYYY-MM-DD for a job done earlier than now. Everything
   // follows that day rather than today, the same way the server does it.
-  complete(id, on) {
+  // `on` dates the completion; `by` credits it to whoever actually did it,
+  // which is not always whoever is holding the phone.
+  complete(id, on, by) {
     const t = this.state.tasks.find(x => x.id === id);
     if (!t) return;
     const whenMs = on ? dayToMs(on) : startOfDay(Date.now());
     const dueMs = t.snoozedTo && t.snoozedTo > this.dueAt(t) ? t.snoozedTo : this.dueAt(t);
     const onTime = whenMs <= dueMs;
     const prev = { lastDone: t.lastDone, lastDoneBy: t.lastDoneBy, streak: t.streak, history: t.history, snoozedTo: t.snoozedTo };
-    const who = this.state.who;
+    const who = by || this.state.who;
     this.mutate(id, n => {
       n.lastDone = whenMs;
       n.lastDoneBy = who;
@@ -1402,7 +1411,7 @@ class Component extends DCLogic {
       return n;
     });
     const acked = this.record("/complete", { id: Number(id), who: who, kind: "done", on: on || null });
-    this.showToast(t.name + (on ? " marked done" : " ticked off"), () => {
+    this.showToast(t.name + (on || by ? " marked done" : " ticked off") + (by && by !== this.state.who ? " for " + by : ""), () => {
       this.mutate(id, n => Object.assign(n, prev));
       // If the tick never left the phone, drop it from the queue instead of
       // sending an undo for something the server never saw.
@@ -1611,7 +1620,7 @@ class Component extends DCLogic {
       id: t.id, name: t.name, statusLine: this.statusLine(t), tint: this.tint(t),
       streakBadge: t.streak >= 3 ? "×" + t.streak : "",
       onTick: () => this.complete(t.id),
-      onOpen: () => { this.setState({ view: "detail", detailId: t.id }); this.loadDetailLog(t.id); }
+      onOpen: () => { this.setState({ view: "detail", detailId: t.id, creditTo: null, backdate: "" }); this.loadDetailLog(t.id); }
     });
     const bucket = (lo, hi) => sorted.filter(t => { const d = this.daysUntil(t); return d >= lo && d <= hi; });
     const defs = [
@@ -2085,6 +2094,16 @@ class Component extends DCLogic {
       detailTint: d ? this.tint(d) : "#968c83",
       detailStreak: d ? (d.streak > 0 ? "×" + d.streak : "—") : "",
       detailInterval: d ? cadenceLabel(d) : "",
+      // Defaults to whoever's holding the phone; the other name is there for
+      // logging something your partner actually did.
+      creditMe: () => this.setState({ creditTo: null }),
+      creditOther: () => this.setState({ creditTo: s.who === "Kal" ? "Lara" : "Kal" }),
+      creditMeBg: s.creditTo ? "transparent" : "#221e1c",
+      creditMeColor: s.creditTo ? "#7d746c" : "#f2ede8",
+      creditOtherBg: s.creditTo ? "#221e1c" : "transparent",
+      creditOtherColor: s.creditTo ? "#f2ede8" : "#7d746c",
+      detailDoneLabel: s.creditTo ? "Done just now by " + s.creditTo : "Done just now",
+
       detailLastDoneLabel: d && d.lastDone
         ? new Date(d.lastDone).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })
         : "Never",
@@ -2100,15 +2119,15 @@ class Component extends DCLogic {
         if (!d) return;
         const when = s.backdate || iso(startOfDay(Date.now() - DAY));
         if (when > iso(startOfDay(Date.now()))) return this.showToast("That's in the future", null);
-        this.complete(d.id, when);
-        this.setState({ view: "list", backdate: "" });
+        this.complete(d.id, when, s.creditTo);
+        this.setState({ view: "list", backdate: "", creditTo: null });
       },
       detailLastDoneInput: d ? iso(d.lastDone) : "",
       detailLastDoneBy: d ? (d.lastDoneBy || "—") : "",
       detailNotes: d ? d.notes : "",
       detailHistory: histRows,
       detailNoHistory: !!d && histRows.length === 0 && !detailPending,
-      detailDone: () => { if (d) { this.complete(d.id); this.setState({ view: "list" }); } },
+      detailDone: () => { if (d) { this.complete(d.id, null, s.creditTo); this.setState({ view: "list", creditTo: null }); } },
       detailSnooze: () => { if (d) this.snooze(d.id); },
       detailSkip: () => { if (d) this.skip(d.id); },
       detailSetNotes: e => {
