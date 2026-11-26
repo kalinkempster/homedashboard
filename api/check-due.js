@@ -268,13 +268,17 @@ export default async function handler(req, res) {
     const items = shared.concat(owned.get(person) || []);
     if (!items.length) continue;
     const payload = digestFor(items);
-    if (preview) { results.push({ who: person, notification: payload, wouldReach: theirDevices.length }); continue; }
+    if (preview) {
+      for (const e of items) stamped.add(keyOf(e));
+      results.push({ who: person, notification: payload, wouldReach: theirDevices.length });
+      continue;
+    }
     const r = await pushToAll(theirDevices, payload);
     for (const e of items) stamped.add(keyOf(e));
     results.push({ who: person, notification: payload, devices: r });
   }
 
-  for (const e of due) {
+  for (const e of preview ? [] : due) {
     if (!stamped.has(keyOf(e))) continue;
     if (e.todo) await sql`update todos set last_pinged = ${today}::date where id = ${e.task.id}`;
     else        await sql`update tasks set last_pinged = ${today}::date where id = ${e.task.id}`;
