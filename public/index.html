@@ -577,9 +577,15 @@
         </div>
         <div style="padding:15px;border-radius:13px;background:#131110;border:1px solid #1e1b19">
           <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#968c83;margin-bottom:7px">Repeats every</div>
-          <div style="font-size:26px;font-weight:600;letter-spacing:-0.02em">{{ detailInterval }}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
+            <button onClick="{{ detailMoreOften }}" aria-label="More often" style="flex-shrink:0;width:34px;height:34px;border-radius:9px;background:#0e0d0c;border:1px solid #242020;color:#a49a91;font-size:17px" style-hover="color:#f2ede8;border-color:#3a332e">–</button>
+            <span style="flex:1;min-width:0;text-align:center;font-size:17px;font-weight:600;letter-spacing:-0.01em">{{ detailIntervalShort }}</span>
+            <button onClick="{{ detailLessOften }}" aria-label="Less often" style="flex-shrink:0;width:34px;height:34px;border-radius:9px;background:#0e0d0c;border:1px solid #242020;color:#a49a91;font-size:17px" style-hover="color:#f2ede8;border-color:#3a332e">+</button>
+          </div>
         </div>
       </div>
+
+      <div style="margin:-14px 0 24px;font-size:12.5px;color:#7d746c;line-height:1.55">{{ detailCadenceHint }}</div>
 
       <div style="margin-bottom:24px">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#968c83;margin-bottom:9px">Last done</div>
@@ -605,6 +611,11 @@
         <sc-if value="{{ detailNoHistory }}" hint-placeholder-val="{{ false }}">
           <div style="padding:16px 2px;font-size:14px;color:#8d837a">Nothing recorded yet.</div>
         </sc-if>
+      </div>
+
+      <div style="margin-top:28px;padding-top:18px;border-top:1px solid #1d1a18">
+        <button onClick="{{ detailArchive }}" style="width:100%;height:46px;border-radius:12px;background:transparent;border:1px solid #242020;color:#8d837a;font-size:14px;font-weight:500" style-hover="color:#e2683a;border-color:#3d2419">Archive this job</button>
+        <div style="margin-top:8px;font-size:12.5px;color:#6d645c;line-height:1.5">Stops it appearing or reminding you. Its history is kept, and you can bring it back from Setup.</div>
       </div>
     </main>
   </sc-if>
@@ -634,18 +645,7 @@
 
   <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
     <main style="flex:1;padding:0 20px 120px;animation:riseIn 0.28s ease both">
-      <h2 style="margin:6px 0 18px;font-size:22px;font-weight:600;letter-spacing:-0.02em">Jobs and how often</h2>
-      <sc-for list="{{ settingsTasks }}" as="task" hint-placeholder-count="6">
-        <div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #151312">
-          <span style="flex:1;min-width:0;font-size:15.5px;font-weight:500;line-height:1.3">{{ task.name }}</span>
-          <div style="flex-shrink:0;display:flex;align-items:center;gap:2px;background:#131110;border:1px solid #242020;border-radius:11px;padding:3px">
-            <button onClick="{{ task.onDown }}" aria-label="Less often" style="width:38px;height:38px;border-radius:9px;color:#a49a91;font-size:18px" style-hover="background:#211d1b;color:#fff">–</button>
-            <span style="min-width:52px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#f2ede8">{{ task.intervalLabel }}</span>
-            <button onClick="{{ task.onUp }}" aria-label="More often" style="width:38px;height:38px;border-radius:9px;color:#a49a91;font-size:18px" style-hover="background:#211d1b;color:#fff">+</button>
-          </div>
-          <button onClick="{{ task.onArchive }}" aria-label="Archive" style="flex-shrink:0;width:38px;height:38px;border-radius:9px;color:#8d837a;font-size:15px" style-hover="color:#e2683a">×</button>
-        </div>
-      </sc-for>
+      <h2 style="margin:6px 0 18px;font-size:22px;font-weight:600;letter-spacing:-0.02em">Setup</h2>
 
       <div style="margin-top:24px;padding:16px;border-radius:14px;background:#131110;border:1px solid #1e1b19">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#968c83;margin-bottom:11px">Add a job</div>
@@ -2104,6 +2104,41 @@ class Component extends DCLogic {
       creditOtherColor: s.creditTo ? "#f2ede8" : "#7d746c",
       detailDoneLabel: s.creditTo ? "Done just now by " + s.creditTo : "Done just now",
 
+      detailIntervalShort: d ? everyLabel(d.interval) : "",
+      // A scheduled job steps a week at a time: nudging 28 days to 29 would
+      // drop it off Mondays and quietly turn it into a different kind of job.
+      // An interval job steps by whatever reads naturally at its size.
+      detailMoreOften: () => {
+        if (!d) return;
+        const step = d.mode === "cycle" ? 7 : d.interval > 30 ? 15 : d.interval > 14 ? 7 : 1;
+        const v = Math.max(d.mode === "cycle" ? 7 : 1, d.interval - step);
+        if (v === d.interval) return;
+        this.mutate(d.id, n => { n.interval = v; return n; });
+        this.patch(d.id, { interval_days: v });
+      },
+      detailLessOften: () => {
+        if (!d) return;
+        const step = d.mode === "cycle" ? 7 : d.interval >= 30 ? 15 : d.interval >= 14 ? 7 : 1;
+        const v = d.interval + step;
+        this.mutate(d.id, n => { n.interval = v; return n; });
+        this.patch(d.id, { interval_days: v });
+      },
+      detailCadenceHint: !d ? ""
+        : d.mode === "cycle"
+          ? cadenceLabel(d) + ". A fixed schedule — doing it late doesn't move the next one."
+          : "Counted from the day you last did it, so doing it late pushes the next one back.",
+      detailArchive: () => {
+        if (!d) return;
+        const name = d.name, id = d.id;
+        this.mutate(id, n => { n.archived = true; return n; });
+        this.patch(id, { archived: true });
+        this.setState({ view: "list" });
+        this.showToast(name + " archived", () => {
+          this.mutate(id, n => { n.archived = false; return n; });
+          this.patch(id, { archived: false });
+        });
+      },
+
       detailLastDoneLabel: d && d.lastDone
         ? new Date(d.lastDone).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })
         : "Never",
@@ -2157,20 +2192,6 @@ class Component extends DCLogic {
       historyMoreLabel: s.logBusy ? "Loading…" : "Load older",
       loadMoreHistory: () => this.loadLog(true),
 
-      settingsTasks: live.map(t => ({
-        name: t.name, intervalLabel: cadenceLabel(t),
-        onUp: () => {
-          const v = Math.max(1, t.interval - (t.interval > 30 ? 15 : t.interval > 14 ? 7 : 1));
-          this.mutate(t.id, n => { n.interval = v; return n; });
-          this.patch(t.id, { interval_days: v });
-        },
-        onDown: () => {
-          const v = t.interval >= 30 ? t.interval + 15 : t.interval >= 14 ? t.interval + 7 : t.interval + 1;
-          this.mutate(t.id, n => { n.interval = v; return n; });
-          this.patch(t.id, { interval_days: v });
-        },
-        onArchive: () => { this.mutate(t.id, n => { n.archived = true; return n; }); this.patch(t.id, { archived: true }); }
-      })),
       archivedTasks: s.tasks.filter(t => t.archived).map(t => ({
         name: t.name, onRestore: () => { this.mutate(t.id, n => { n.archived = false; return n; }); this.patch(t.id, { archived: false }); }
       })),
