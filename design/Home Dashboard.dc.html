@@ -8,9 +8,9 @@
 <body>
 <x-dc>
 <helmet>
-<link rel="icon" href="favicon.svg" type="image/svg+xml" />
-<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
-<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="icon" href="favicon-v2.svg" type="image/svg+xml" />
+<link rel="icon" href="/favicon-32-v2.png" sizes="32x32" type="image/png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon-v2.png" />
 <link rel="manifest" href="/manifest.webmanifest" />
 <meta name="theme-color" content="#0c0b0a" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
@@ -1532,8 +1532,8 @@ class Component extends DCLogic {
       if (!reg) return this.showToast("No service worker registered — tap Allow first", null);
       await reg.showNotification("Home Dashboard", {
         body: "If you can see this, alerts work on this phone.",
-        icon: "/icon-192.png",
-        badge: "/icon-192.png",
+        icon: "/icon-192-v2.png",
+        badge: "/icon-192-v2.png",
         tag: "local-test"
       });
       this.showToast("Sent — check your notification shade", null);

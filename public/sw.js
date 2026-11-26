@@ -1,16 +1,16 @@
 // Bump to retire the previous cache on the next deploy.
-const CACHE = 'homedash-v4';
+const CACHE = 'homedash-v5';
 
 // Enough to boot the app with no connection at all.
 const SHELL = [
   '/',
   '/support.js',
   '/manifest.webmanifest',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/favicon.svg',
-  '/favicon-32.png',
-  '/apple-touch-icon.png'
+  '/icon-192-v2.png',
+  '/icon-512-v2.png',
+  '/favicon-v2.svg',
+  '/favicon-32-v2.png',
+  '/apple-touch-icon-v2.png'
 ];
 
 self.addEventListener('install', event => {
@@ -97,8 +97,8 @@ self.addEventListener('push', event => {
 
   event.waitUntil(self.registration.showNotification(data.title || 'Home Dashboard', {
     body: data.body || 'A job is due.',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: '/icon-192-v2.png',
+    badge: '/icon-192-v2.png',
     // A stable tag lets the morning digest replace yesterday's rather than
     // stacking up in the shade.
     tag: data.tag || ('task-' + (data.taskId || Date.now())),
