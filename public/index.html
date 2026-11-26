@@ -552,6 +552,15 @@
           <button onClick="{{ detailSnooze }}" style="flex:1;height:50px;border-radius:12px;background:#151312;border:1px solid #242020;color:#e8ded6;font-size:14.5px;font-weight:500" style-hover="background:#1c1918">Not today</button>
           <button onClick="{{ detailSkip }}" style="flex:1;height:50px;border-radius:12px;background:#151312;border:1px solid #242020;color:#e8ded6;font-size:14.5px;font-weight:500" style-hover="background:#1c1918">Skip this one</button>
         </div>
+
+        <div style="margin-top:7px;padding:14px 15px;border-radius:13px;background:#131110;border:1px solid #1e1b19">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#968c83;margin-bottom:9px">Done earlier</div>
+          <div style="display:flex;gap:9px">
+            <input type="date" value="{{ detailBackdate }}" onChange="{{ setDetailBackdate }}" max="{{ detailBackdateMax }}" style="flex:1;min-width:0;height:46px;padding:0 13px;border-radius:11px;background:#0e0d0c;border:1px solid #242020;color:#f2ede8;font-size:15px;font-family:'IBM Plex Mono',monospace" />
+            <button onClick="{{ detailDoneOn }}" style="flex-shrink:0;height:46px;padding:0 16px;border-radius:11px;background:#1f1b19;border:1px solid #322c28;color:#f2ede8;font-size:14px;font-weight:600" style-hover="background:#2a2320">Mark done</button>
+          </div>
+          <div style="margin-top:8px;font-size:12.5px;color:#7d746c;line-height:1.5">{{ detailBackdateHint }}</div>
+        </div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:24px">
@@ -567,9 +576,9 @@
 
       <div style="margin-bottom:24px">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#968c83;margin-bottom:9px">Last done</div>
-        <div style="display:flex;align-items:center;gap:9px">
-          <input type="date" value="{{ detailLastDoneInput }}" onChange="{{ detailSetLastDone }}" style="flex:1;height:48px;padding:0 13px;border-radius:12px;background:#131110;border:1px solid #242020;color:#f2ede8;font-size:15px;font-family:'IBM Plex Mono',monospace" />
-          <span style="font-size:13.5px;color:#8d837a">by {{ detailLastDoneBy }}</span>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:2px 0">
+          <span style="font-size:16px;color:#f2ede8">{{ detailLastDoneLabel }}</span>
+          <span style="flex-shrink:0;font-size:13.5px;color:#8d837a">by {{ detailLastDoneBy }}</span>
         </div>
       </div>
 
@@ -896,7 +905,7 @@ class Component extends DCLogic {
   state = {
     view: "home", who: "Kal", detailId: null, laterOpen: false,
     cal: null, groceries: null, staples: null, newItem: "", regularsOpen: true, newPrivate: false, newMode: "interval", newWeeks: "", newStart: "",
-    pending: 0,
+    pending: 0, backdate: "",
     todos: null, newTodo: "", newTodoDue: "", newTodoMine: false,
     newName: "", newInterval: "", toast: null, notifState: "default",
     pushState: "off", pushError: "",
@@ -1374,22 +1383,26 @@ class Component extends DCLogic {
   mutate(id, fn) {
     this.setState(s => ({ tasks: s.tasks.map(t => t.id === id ? fn(Object.assign({}, t)) : t) }));
   }
-  complete(id) {
+  // `on` is an optional YYYY-MM-DD for a job done earlier than now. Everything
+  // follows that day rather than today, the same way the server does it.
+  complete(id, on) {
     const t = this.state.tasks.find(x => x.id === id);
     if (!t) return;
-    const onTime = this.daysUntil(t) >= 0;
+    const whenMs = on ? dayToMs(on) : startOfDay(Date.now());
+    const dueMs = t.snoozedTo && t.snoozedTo > this.dueAt(t) ? t.snoozedTo : this.dueAt(t);
+    const onTime = whenMs <= dueMs;
     const prev = { lastDone: t.lastDone, lastDoneBy: t.lastDoneBy, streak: t.streak, history: t.history, snoozedTo: t.snoozedTo };
     const who = this.state.who;
     this.mutate(id, n => {
-      n.lastDone = startOfDay(Date.now());
+      n.lastDone = whenMs;
       n.lastDoneBy = who;
       n.streak = onTime ? n.streak + 1 : 0;
       n.snoozedTo = null;
-      n.history = [{ at: Date.now(), by: who, kind: "done" }].concat(n.history);
+      n.history = [{ at: whenMs, by: who, kind: "done" }].concat(n.history);
       return n;
     });
-    const acked = this.record("/complete", { id: Number(id), who: who, kind: "done" });
-    this.showToast(t.name + " ticked off", () => {
+    const acked = this.record("/complete", { id: Number(id), who: who, kind: "done", on: on || null });
+    this.showToast(t.name + (on ? " marked done" : " ticked off"), () => {
       this.mutate(id, n => Object.assign(n, prev));
       // If the tick never left the phone, drop it from the queue instead of
       // sending an undo for something the server never saw.
@@ -2072,6 +2085,24 @@ class Component extends DCLogic {
       detailTint: d ? this.tint(d) : "#968c83",
       detailStreak: d ? (d.streak > 0 ? "×" + d.streak : "—") : "",
       detailInterval: d ? cadenceLabel(d) : "",
+      detailLastDoneLabel: d && d.lastDone
+        ? new Date(d.lastDone).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })
+        : "Never",
+      // Defaults to yesterday, because that's the case this exists for: you did
+      // it, and remembered to log it the next morning.
+      detailBackdate: s.backdate || (d ? iso(startOfDay(Date.now() - DAY)) : ""),
+      detailBackdateMax: iso(startOfDay(Date.now())),
+      setDetailBackdate: e => this.setState({ backdate: e.target.value }),
+      detailBackdateHint: d
+        ? "Logs it properly on that day — history, who did it, and the streak all follow that date."
+        : "",
+      detailDoneOn: () => {
+        if (!d) return;
+        const when = s.backdate || iso(startOfDay(Date.now() - DAY));
+        if (when > iso(startOfDay(Date.now()))) return this.showToast("That's in the future", null);
+        this.complete(d.id, when);
+        this.setState({ view: "list", backdate: "" });
+      },
       detailLastDoneInput: d ? iso(d.lastDone) : "",
       detailLastDoneBy: d ? (d.lastDoneBy || "—") : "",
       detailNotes: d ? d.notes : "",

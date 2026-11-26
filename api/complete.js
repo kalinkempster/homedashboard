@@ -1,4 +1,4 @@
-import { sql, daysUntil, todayKey, dayKey } from './_db.js';
+import { sql, todayKey, dayKey, dueKey } from './_db.js';
 
 // The history row carries the state it replaced, so an undo restores exactly
 // what was there rather than guessing from what's left behind.
@@ -15,7 +15,7 @@ async function ensureColumns() {
 // Body: { id, who, kind: 'done' | 'skipped' | 'snooze' | 'undo', historyId? }
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
-  const { id, who, kind = 'done', historyId } = req.body;
+  const { id, who, kind = 'done', historyId, on } = req.body;
   if (!id) return res.status(400).json({ error: 'id required' });
 
   await ensureColumns();
@@ -56,20 +56,38 @@ export default async function handler(req, res) {
     return res.json({ task: row });
   }
 
-  const onTime = daysUntil(task) >= 0;
-  const streak = kind === 'done' ? (onTime ? task.streak + 1 : 0) : 0;
+  // A completion can be dated to the day it actually happened — you often
+  // don't log a job until the next morning. Everything derived from it is
+  // judged against that day, not against today: the stored date, the history
+  // entry, and whether the streak survives.
   const today = todayKey();
+  let when = today;
+  if (on) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(on)) {
+      return res.status(400).json({ error: 'on must be YYYY-MM-DD' });
+    }
+    if (on > today) {
+      return res.status(400).json({ error: "a job can't have been done in the future" });
+    }
+    when = on;
+  }
+
+  const snoozed = dayKey(task.snoozed_to);
+  const dueDay = snoozed && snoozed > dueKey(task) ? snoozed : dueKey(task);
+  const onTime = when <= dueDay;
+  const streak = kind === 'done' ? (onTime ? task.streak + 1 : 0) : 0;
 
   const [entry] = await sql`
-    insert into history (task_id, by_who, kind, prev_last_done, prev_last_done_by, prev_streak, prev_last_pinged)
+    insert into history (task_id, by_who, kind, at, prev_last_done, prev_last_done_by, prev_streak, prev_last_pinged)
     values (${id}, ${kind === 'done' ? who : null}, ${kind},
+            coalesce(${on ? when + 'T12:00:00Z' : null}::timestamptz, now()),
             ${dayKey(task.last_done)}::date, ${task.last_done_by},
             ${task.streak}, ${dayKey(task.last_pinged)}::date)
     returning *`;
 
   const [row] = await sql`
     update tasks set
-      last_done    = ${today}::date,
+      last_done    = ${when}::date,
       last_done_by = ${kind === 'done' ? who : null},
       streak       = ${streak},
       snoozed_to   = null,
