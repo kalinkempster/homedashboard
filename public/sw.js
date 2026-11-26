@@ -1,5 +1,5 @@
 // Bump to retire the previous cache on the next deploy.
-const CACHE = 'homedash-v3';
+const CACHE = 'homedash-v4';
 
 // Enough to boot the app with no connection at all.
 const SHELL = [
@@ -8,7 +8,6 @@ const SHELL = [
   '/manifest.webmanifest',
   '/icon-192.png',
   '/icon-512.png',
-  '/icon-maskable-512.png',
   '/favicon.svg',
   '/favicon-32.png',
   '/apple-touch-icon.png'
