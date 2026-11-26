@@ -1,5 +1,5 @@
 import webpush from 'web-push';
-import { sql, TZ, daysUntil, daysSince, todayKey, localHour } from './_db.js';
+import { sql, TZ, daysUntil, daysSince, todayKey, dayKey, localHour } from './_db.js';
 import { binLabel } from './_bins.js';
 
 webpush.setVapidDetails(
@@ -185,6 +185,27 @@ export default async function handler(req, res) {
     due.push({ task, overdueBy: -d });
   }
 
+  // One-off to-dos that have reached their date and aren't done. They ride in
+  // the same digest as the jobs — two separate notifications in one morning is
+  // how a reminder gets dismissed without being read.
+  let todos = [];
+  try {
+    todos = await sql`select * from todos where done = false and due_date is not null`;
+  } catch (err) {
+    todos = [];   // table not created yet; nothing to remind about
+  }
+  for (const t of todos) {
+    const d = Math.round((Date.parse(dayKey(t.due_date)) - Date.parse(today)) / 86400000);
+    if (d > 0) continue;
+    const since = daysSince(t.last_pinged);
+    if (since !== null && since < 3) continue;
+    due.push({
+      todo: t,
+      task: { id: t.id, name: t.title, owner: t.owner },
+      overdueBy: -d
+    });
+  }
+
   if (!due.length) {
     return res.json({ sent: [], bins: binResult, devices: subs.length, day: today, hour, timezone: TZ });
   }
@@ -234,6 +255,9 @@ export default async function handler(req, res) {
   // Only stamp a job once it has actually been sent to someone. A private job
   // whose owner has no registered phone stays unstamped and is retried, rather
   // than being quietly marked as reminded.
+  // Jobs and to-dos live in different tables and their ids overlap, so the
+  // record of what's been sent is keyed by which kind it is as well as by id.
+  const keyOf = e => (e.todo ? 'todo:' : 'job:') + e.task.id;
   const stamped = new Set();
   const results = [];
 
@@ -242,15 +266,17 @@ export default async function handler(req, res) {
     if (!items.length) continue;
     const payload = digestFor(items);
     const r = await pushToAll(theirDevices, payload);
-    for (const e of items) stamped.add(e.task.id);
+    for (const e of items) stamped.add(keyOf(e));
     results.push({ who: person, notification: payload, devices: r });
   }
 
-  for (const id of stamped) {
-    await sql`update tasks set last_pinged = ${today}::date where id = ${id}`;
+  for (const e of due) {
+    if (!stamped.has(keyOf(e))) continue;
+    if (e.todo) await sql`update todos set last_pinged = ${today}::date where id = ${e.task.id}`;
+    else        await sql`update tasks set last_pinged = ${today}::date where id = ${e.task.id}`;
   }
 
-  const unreachable = due.filter(e => !stamped.has(e.task.id))
+  const unreachable = due.filter(e => !stamped.has(keyOf(e)))
     .map(e => ({ task: e.task.name, owner: e.task.owner, reason: 'no phone registered to that name' }));
 
   res.json({

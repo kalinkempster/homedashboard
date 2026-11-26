@@ -252,6 +252,14 @@
           <span style="margin-top:12px;font-size:15.5px;font-weight:600;letter-spacing:-0.01em">Grocery List</span>
           <span style="margin-top:3px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8d837a">{{ grocerySummary }}</span>
         </button>
+        <button onClick="{{ goTodos }}" style="grid-column:1 / -1;position:relative;overflow:hidden;display:flex;align-items:center;gap:15px;padding:16px;border-radius:16px;background:#131110;border:1px solid {{ todoTileBorder }};color:#f2ede8;text-align:left" style-hover="background:#171514">
+          <span style="position:absolute;top:0;left:0;right:0;height:2px;background:{{ todoTileStripe }}"></span>
+          <svg viewBox="0 0 24 24" style="width:32px;height:32px;flex-shrink:0;color:{{ todoTileAccent }}"><use href="#ic-task"/></svg>
+          <span style="display:flex;flex-direction:column;min-width:0">
+            <span style="font-size:16.5px;font-weight:600;letter-spacing:-0.01em">To-do List</span>
+            <span style="margin-top:2px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:{{ todoTileAccent }}">{{ todoSummary }}</span>
+          </span>
+        </button>
       </div>
     </main>
   </sc-if>
@@ -318,6 +326,62 @@
 
       <sc-if value="{{ eventsEmpty }}" hint-placeholder-val="{{ false }}">
         <div style="padding:20px 2px;font-size:14.5px;color:#8d837a;line-height:1.55">Nothing on the family calendar for the next few months, beyond what the dashboard already tracks.</div>
+      </sc-if>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{ isTodos }}" hint-placeholder-val="{{ false }}">
+    <main style="flex:1;padding:0 20px 120px;animation:riseIn 0.28s ease both">
+      <input value="{{ newTodo }}" onChange="{{ setNewTodo }}" onKeyDown="{{ todoKey }}" placeholder="What needs doing?" enterkeyhint="done" style="width:100%;height:50px;padding:0 14px;border-radius:12px;background:#131110;border:1px solid #242020;color:#f2ede8;font-size:15.5px;margin-top:4px" />
+      <div style="display:flex;gap:9px;margin-top:9px">
+        <input type="date" value="{{ newTodoDue }}" onChange="{{ setNewTodoDue }}" style="flex:1;min-width:0;height:48px;padding:0 13px;border-radius:12px;background:#131110;border:1px solid #242020;color:#f2ede8;font-size:15px;font-family:'IBM Plex Mono',monospace" />
+        <button onClick="{{ clearTodoDue }}" style="flex-shrink:0;height:48px;padding:0 14px;border-radius:12px;background:#131110;border:1px solid #242020;color:#8d837a;font-size:13px" style-hover="color:#f2ede8">No date</button>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:9px;padding:4px;background:#0e0d0c;border:1px solid #1b1817;border-radius:11px">
+        <button onClick="{{ todoShared }}" style="flex:1;height:36px;border-radius:8px;background:{{ todoSharedBg }};color:{{ todoSharedColor }};font-size:13px;font-weight:500" style-hover="color:#f2ede8">Both of us</button>
+        <button onClick="{{ todoMine }}" style="flex:1;height:36px;border-radius:8px;background:{{ todoMineBg }};color:{{ todoMineColor }};font-size:13px;font-weight:500" style-hover="color:#f2ede8">Just {{ who }}</button>
+      </div>
+      <button onClick="{{ addTodo }}" style="width:100%;height:48px;margin-top:10px;border-radius:12px;background:#c2410c;color:#fff;font-size:14.5px;font-weight:600" style-hover="background:#d24e15">Add</button>
+      <div style="margin-top:9px;font-size:12.5px;color:#7d746c;line-height:1.55">{{ todoFormHint }}</div>
+
+      <sc-if value="{{ todosEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:30px 2px 4px;font-size:15px;color:#8d837a;line-height:1.55">Nothing on the list. Anything you add with a date will remind you on the day.</div>
+      </sc-if>
+
+      <sc-if value="{{ hasOpenTodos }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:26px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:#968c83">Open</div>
+            <div style="flex:1;height:1px;background:#1b1817"></div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8d837a">{{ openTodoCount }}</div>
+          </div>
+          <sc-for list="{{ openTodos }}" as="t" hint-placeholder-count="4">
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid #151312">
+              <button onClick="{{ t.onToggle }}" aria-label="Mark done" style="flex-shrink:0;width:30px;height:30px;margin-top:1px;border-radius:999px;border:1.5px solid #332e2a;background:#131110;color:#6d645c;font-size:14px;display:flex;align-items:center;justify-content:center" style-hover="border-color:#c2410c;color:#f2ede8">✓</button>
+              <button onClick="{{ t.onToggle }}" style="flex:1;min-width:0;text-align:left;padding:0">
+                <div style="font-size:15.5px;color:#f2ede8;line-height:1.35">{{ t.title }}</div>
+                <div style="margin-top:3px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ t.whenColor }}">{{ t.meta }}</div>
+              </button>
+              <button onClick="{{ t.onRemove }}" aria-label="Remove" style="flex-shrink:0;width:30px;height:30px;border-radius:8px;color:#5c554f;font-size:16px" style-hover="color:#e2683a">×</button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ hasDoneTodos }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:26px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:#6d645c">Done</div>
+            <div style="flex:1;height:1px;background:#1b1817"></div>
+            <button onClick="{{ clearDoneTodos }}" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;color:#8d837a" style-hover="color:#e2683a">Clear</button>
+          </div>
+          <sc-for list="{{ doneTodos }}" as="t" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #131110">
+              <button onClick="{{ t.onToggle }}" aria-label="Put back" style="flex-shrink:0;width:30px;height:30px;border-radius:999px;border:1.5px solid #2a2523;background:#1a1716;color:#8d837a;font-size:14px;display:flex;align-items:center;justify-content:center">✓</button>
+              <button onClick="{{ t.onToggle }}" style="flex:1;min-width:0;text-align:left;color:#6d645c;font-size:15px;text-decoration:line-through;padding:2px 0">{{ t.title }}</button>
+            </div>
+          </sc-for>
+        </div>
       </sc-if>
     </main>
   </sc-if>
@@ -629,10 +693,11 @@
   </sc-if>
 
   <nav style="position:sticky;bottom:0;display:flex;gap:4px;padding:9px 14px 18px;background:linear-gradient(to top,#0c0b0a 62%,rgba(12,11,10,0));backdrop-filter:blur(6px)">
-    <button onClick="{{ goHome }}" style="flex:1;height:50px;border-radius:12px;font-size:13.5px;font-weight:500;background:{{ homeTabBg }};color:{{ homeTabColor }}" style-hover="color:#f2ede8">Home</button>
-    <button onClick="{{ goList }}" style="flex:1;height:50px;border-radius:12px;font-size:13.5px;font-weight:500;background:{{ listTabBg }};color:{{ listTabColor }}" style-hover="color:#f2ede8">Tasks</button>
-    <button onClick="{{ goGrocery }}" style="flex:1;height:50px;border-radius:12px;font-size:13.5px;font-weight:500;background:{{ groceryTabBg }};color:{{ groceryTabColor }}" style-hover="color:#f2ede8">Grocery</button>
-    <button onClick="{{ goSettings }}" style="flex:1;height:50px;border-radius:12px;font-size:13.5px;font-weight:500;background:{{ settingsTabBg }};color:{{ settingsTabColor }}" style-hover="color:#f2ede8">Setup</button>
+    <button onClick="{{ goHome }}" style="flex:1;min-width:0;height:50px;border-radius:12px;font-size:12.5px;font-weight:500;background:{{ homeTabBg }};color:{{ homeTabColor }}" style-hover="color:#f2ede8">Home</button>
+    <button onClick="{{ goList }}" style="flex:1;min-width:0;height:50px;border-radius:12px;font-size:12.5px;font-weight:500;background:{{ listTabBg }};color:{{ listTabColor }}" style-hover="color:#f2ede8">Chores</button>
+    <button onClick="{{ goTodos }}" style="flex:1;min-width:0;height:50px;border-radius:12px;font-size:12.5px;font-weight:500;background:{{ todoTabBg }};color:{{ todoTabColor }}" style-hover="color:#f2ede8">To-do</button>
+    <button onClick="{{ goGrocery }}" style="flex:1;min-width:0;height:50px;border-radius:12px;font-size:12.5px;font-weight:500;background:{{ groceryTabBg }};color:{{ groceryTabColor }}" style-hover="color:#f2ede8">Grocery</button>
+    <button onClick="{{ goSettings }}" style="flex:1;min-width:0;height:50px;border-radius:12px;font-size:12.5px;font-weight:500;background:{{ settingsTabBg }};color:{{ settingsTabColor }}" style-hover="color:#f2ede8">Setup</button>
   </nav>
 
   <sc-if value="{{ toastOpen }}" hint-placeholder-val="{{ false }}">
@@ -832,6 +897,7 @@ class Component extends DCLogic {
     view: "home", who: "Kal", detailId: null, laterOpen: false,
     cal: null, groceries: null, staples: null, newItem: "", regularsOpen: true, newPrivate: false, newMode: "interval", newWeeks: "", newStart: "",
     pending: 0,
+    todos: null, newTodo: "", newTodoDue: "", newTodoMine: false,
     newName: "", newInterval: "", toast: null, notifState: "default",
     pushState: "off", pushError: "",
     // Server mode keeps the log out of the 60s poll and pages it in on demand;
@@ -883,6 +949,7 @@ class Component extends DCLogic {
       this.loadCalendar();
       this.loadGroceries();
       this.loadStaples();
+      this.loadTodos();
       // Coming back on signal is the moment to drain the queue.
       window.addEventListener("online", () => { this.flush().then(() => this.reload()); });
       this.poll = setInterval(() => this.reload(), 60000);
@@ -952,6 +1019,7 @@ class Component extends DCLogic {
     }
     try { const r = await fetch(this.scoped("/api/tasks")); if (r.ok) this.applyServer(await r.json()); } catch (e) {}
     this.loadGroceries();
+    this.loadTodos();
   }
 
   // Calendars change slowly and the server caches the feeds, so this runs once
@@ -976,6 +1044,63 @@ class Component extends DCLogic {
       // small and the server is the truth, so a straight replace is fine.
       this.setState({ groceries: d.items || [] });
     } catch (e) {}
+  }
+
+  async loadTodos() {
+    if (!this.server || this.outbox.length) return;
+    try {
+      const r = await fetch(this.scoped("/api/todos"));
+      if (r.ok) this.setState({ todos: (await r.json()).todos || [] });
+    } catch (e) {}
+  }
+
+  todoPost(method, body) {
+    if (!this.server) return Promise.resolve(null);
+    return this.enqueue({ path: "/todos", method: method, body: body || {} });
+  }
+
+  addTodo() {
+    const title = this.state.newTodo.trim();
+    if (!title) return this.showToast("Give it a name first", null);
+    const body = {
+      title: title,
+      owner: this.state.newTodoMine ? this.state.who : null,
+      due_date: this.state.newTodoDue || null,
+      who: this.state.who
+    };
+    this.setState({ newTodo: "", newTodoDue: "", newTodoMine: false });
+    this.todoPost("POST", body).then(() => this.loadTodos());
+  }
+
+  toggleTodo(id, done) {
+    this.setState(s => ({
+      todos: (s.todos || []).map(t => t.id === id ? { ...t, done: done } : t)
+    }));
+    this.todoPost("PATCH", { id: id, done: done, who: this.state.who })
+      .then(() => this.loadTodos());
+  }
+
+  removeTodo(id) {
+    const gone = (this.state.todos || []).find(t => t.id === id);
+    this.setState(s => ({ todos: (s.todos || []).filter(t => t.id !== id) }));
+    this.todoPost("DELETE", { id: id });
+    if (gone) {
+      this.showToast(gone.title + " removed", () => {
+        this.todoPost("POST", {
+          title: gone.title, owner: gone.owner,
+          due_date: gone.due_date ? String(gone.due_date).slice(0, 10) : null,
+          who: this.state.who
+        }).then(() => this.loadTodos());
+      });
+    }
+  }
+
+  clearDoneTodos() {
+    const cleared = (this.state.todos || []).filter(t => t.done);
+    if (!cleared.length) return;
+    this.setState(s => ({ todos: (s.todos || []).filter(t => !t.done) }));
+    this.todoPost("DELETE", { clearDone: true, who: this.state.who });
+    this.showToast(plural(cleared.length, "task") + " cleared", null);
   }
 
   async loadStaples() {
@@ -1718,6 +1843,34 @@ class Component extends DCLogic {
       : next ? "Next in " + plural(Math.max(this.daysUntil(next), 0), "day")
       : "Nothing due";
 
+    // ---- one-off to-dos ----
+    const todoList = s.todos || [];
+    const openTodos = todoList.filter(t => !t.done);
+    const doneTodos = todoList.filter(t => t.done);
+    const todoRow = t => {
+      const due = t.due_date ? String(t.due_date).slice(0, 10) : null;
+      const n = due && calToday ? daysBetweenISO(calToday, due) : null;
+      const overdue = n !== null && n < 0;
+      const today = n === 0;
+      // An undated task is on the list but nothing is chasing it, and the row
+      // should say so rather than leaving a blank where a date would be.
+      const meta = !due ? "No date"
+        : overdue ? plural(-n, "day") + " overdue"
+        : today ? "Due today"
+        : "Due " + whenLabel(calToday, due, null);
+      return {
+        title: t.title,
+        meta: meta + (t.owner ? " · " + t.owner : ""),
+        whenColor: overdue ? "#e2683a" : today ? "#d9a441" : "#8d837a",
+        onToggle: () => this.toggleTodo(t.id, !t.done),
+        onRemove: () => this.removeTodo(t.id)
+      };
+    };
+    const todosDueCount = openTodos.filter(t => {
+      const due = t.due_date ? String(t.due_date).slice(0, 10) : null;
+      return due && calToday && daysBetweenISO(calToday, due) <= 0;
+    }).length;
+
     // ---- grocery ----
     const items = s.groceries || [];
     const wantedItems = items.filter(i => !i.done);
@@ -1764,7 +1917,7 @@ class Component extends DCLogic {
         // Switching person changes which jobs are yours to see, so the lists
         // are refetched rather than filtered client-side.
         this.viewer = next;
-        this.setState({ who: next, log: null, detailLog: null });
+        this.setState({ who: next, log: null, detailLog: null, todos: null });
         this.logCursor = null;
         this.renameDevice(next);
         this.reload();
@@ -1786,6 +1939,41 @@ class Component extends DCLogic {
       isHome: s.view === "home", isGrocery: s.view === "grocery",
       isList: s.view === "list", isDetail: s.view === "detail" && !!d,
       isHistory: s.view === "history", isSettings: s.view === "settings",
+
+      todoSummary: s.todos === null ? ""
+        : todosDueCount ? plural(todosDueCount, "task") + " due"
+        : openTodos.length ? plural(openTodos.length, "task") + " open"
+        : "Nothing open",
+      todoTileAccent: todosDueCount ? "#e2683a" : "#a49a91",
+      todoTileStripe: todosDueCount ? "#e2683a" : "transparent",
+      todoTileBorder: todosDueCount ? "#33231c" : "#242020",
+
+      isTodos: s.view === "todos",
+      goTodos: () => { this.setState({ view: "todos" }); this.loadTodos(); },
+      todoTabBg: s.view === "todos" ? "#1c1917" : "transparent",
+      todoTabColor: s.view === "todos" ? "#f2ede8" : "#7d746c",
+      openTodos: openTodos.map(todoRow),
+      doneTodos: doneTodos.map(todoRow),
+      hasOpenTodos: openTodos.length > 0,
+      hasDoneTodos: doneTodos.length > 0,
+      openTodoCount: openTodos.length,
+      todosEmpty: todoList.length === 0,
+      newTodo: s.newTodo, newTodoDue: s.newTodoDue,
+      setNewTodo: e => this.setState({ newTodo: e.target.value }),
+      setNewTodoDue: e => this.setState({ newTodoDue: e.target.value }),
+      clearTodoDue: () => this.setState({ newTodoDue: "" }),
+      todoKey: e => { if (e.key === "Enter") this.addTodo(); },
+      addTodo: () => this.addTodo(),
+      clearDoneTodos: () => this.clearDoneTodos(),
+      todoShared: () => this.setState({ newTodoMine: false }),
+      todoMine: () => this.setState({ newTodoMine: true }),
+      todoSharedBg: s.newTodoMine ? "transparent" : "#221e1c",
+      todoSharedColor: s.newTodoMine ? "#7d746c" : "#f2ede8",
+      todoMineBg: s.newTodoMine ? "#221e1c" : "transparent",
+      todoMineColor: s.newTodoMine ? "#f2ede8" : "#7d746c",
+      todoFormHint: s.newTodoDue
+        ? "You'll be reminded on the day, and every 3 days after, until it's ticked off."
+        : "Leave the date empty and it just sits on the list — nothing will chase you.",
 
       isEventsList: s.view === "eventsList",
       goEvents: () => this.setState({ view: "eventsList" }),

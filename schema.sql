@@ -102,3 +102,18 @@ create table if not exists bin_log (
   day date primary key,
   at  timestamptz not null default now()
 );
+
+-- One-off tasks: done once and finished, as opposed to the recurring jobs in
+-- `tasks`. owner null means both; due_date null means open-ended.
+create table if not exists todos (
+  id          serial primary key,
+  title       text not null,
+  owner       text,
+  due_date    date,
+  done        boolean not null default false,
+  done_by     text,
+  done_at     timestamptz,
+  created_by  text,
+  created_at  timestamptz not null default now(),
+  last_pinged date
+);

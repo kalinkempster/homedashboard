@@ -56,3 +56,18 @@ alter table tasks add column if not exists owner text;
 -- A 'cycle' job repeats on a fixed series of dates counted from anchor_date,
 -- every interval_days apart, which doing it late does not shift.
 alter table tasks add column if not exists anchor_date date;
+
+-- One-off tasks: done once and finished, as opposed to the recurring jobs in
+-- `tasks`. owner null means both; due_date null means open-ended.
+create table if not exists todos (
+  id          serial primary key,
+  title       text not null,
+  owner       text,
+  due_date    date,
+  done        boolean not null default false,
+  done_by     text,
+  done_at     timestamptz,
+  created_by  text,
+  created_at  timestamptz not null default now(),
+  last_pinged date
+);
